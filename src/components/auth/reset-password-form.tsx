@@ -1,0 +1,97 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, useState } from "react";
+
+export function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") ?? "";
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token) {
+      setError("Brakuje tokenu resetu hasla.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          password,
+          confirmPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message ?? "Nie udalo sie zresetowac hasla.");
+      }
+
+      setSuccess(data.message ?? "Haslo zostalo zmienione.");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nie udalo sie zresetowac hasla.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="grid gap-6" onSubmit={handleSubmit}>
+      <label className="flex flex-col gap-2 text-sm text-slate-700">
+        <span className="font-medium">Nowe haslo</span>
+        <input
+          className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+          onChange={(event) => setPassword(event.target.value)}
+          required
+          type="password"
+          value={password}
+        />
+      </label>
+
+      <label className="flex flex-col gap-2 text-sm text-slate-700">
+        <span className="font-medium">Potwierdz nowe haslo</span>
+        <input
+          className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          required
+          type="password"
+          value={confirmPassword}
+        />
+      </label>
+
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+      {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
+
+      <button
+        className="h-12 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        disabled={isSubmitting}
+        type="submit"
+      >
+        {isSubmitting ? "Zmieniam..." : "Ustaw nowe haslo"}
+      </button>
+
+      <p className="text-sm text-slate-500">
+        Wroc do <Link className="font-semibold text-slate-950" href="/auth/login">logowania</Link>
+      </p>
+    </form>
+  );
+}

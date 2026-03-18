@@ -1,0 +1,10 @@
+<moderationCategories>
+  <category slug="spam" name="Spam / reklama" />
+  <category slug="fraud" name="Oszustwo / scam" />
+  <category slug="violence" name="Namawianie do przemocy">
+    <category slug="violence-children" name="Przemoc wobec dzieci" />
+    <category slug="violence-animals" name="Przemoc wobec zwierzat" />
+  </category>
+  <category slug="illegal" name="Nielegalna tresc" />
+  <category slug="misleading" name="Wprowadzajace w blad" />
+</moderationCategories>

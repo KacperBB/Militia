@@ -1,0 +1,28 @@
+<taxonomy>
+  <category slug="games" name="Games">
+    <category slug="pc" name="PC">
+      <category slug="competitive" name="Competitive">
+        <category slug="team-play" name="Team Play">
+          <category slug="ranked" name="Ranked">
+            <category slug="seasonal" name="Seasonal">
+              <tag slug="fps" name="FPS" />
+              <tag slug="tactical" name="Tactical" />
+            </category>
+          </category>
+        </category>
+      </category>
+    </category>
+  </category>
+
+  <category slug="hardware" name="Hardware">
+    <category slug="components" name="Components">
+      <category slug="graphics-cards" name="Graphics Cards">
+        <tag slug="gpu" name="GPU" />
+        <tag slug="rtx" name="RTX" />
+      </category>
+      <category slug="processors" name="Processors">
+        <tag slug="cpu" name="CPU" />
+      </category>
+    </category>
+  </category>
+</taxonomy>

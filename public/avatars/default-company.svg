@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title>Default company avatar</title>
+  <desc>Neutral default avatar for a company account.</desc>
+  <rect width="128" height="128" rx="32" fill="#0F172A" />
+  <path d="M28 100V44l22-12 18 10 18-10 14 8v60" fill="#F8FAFC" opacity="0.92" />
+  <path d="M42 100V58h14v42M72 100V50h14v50" fill="#F59E0B" />
+  <path d="M92 100V66h10v34" fill="#CBD5E1" />
+  <path d="M20 104h88" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" />
+</svg>

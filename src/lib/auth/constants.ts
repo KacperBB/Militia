@@ -1,0 +1,7 @@
+export const AUTH_SESSION_COOKIE = "militia_session";
+export const AUTH_GOOGLE_STATE_COOKIE = "militia_google_state";
+export const EMAIL_VERIFICATION_TOKEN_TYPE = "EMAIL_VERIFICATION";
+export const PASSWORD_RESET_TOKEN_TYPE = "PASSWORD_RESET";
+export const SESSION_DURATION_DAYS = 30;
+export const EMAIL_VERIFICATION_DURATION_HOURS = 24;
+export const PASSWORD_RESET_DURATION_MINUTES = 30;

@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model users {
+  id                 String      @id @default(uuid()) @db.Uuid
+  email              String      @unique
+  username           String?     @unique
+  first_name         String?
+  last_name          String?
+  phone              String?
+  company_id         String?     @db.Uuid
+  avatar_url         String?
+  marketing_consent  Boolean     @default(false)
+  status             String      @default("ACTIVE")
+  role               String      @default("USER")
+  email_verified_at  DateTime?   @db.Timestamptz(6)
+  created_at         DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime    @updatedAt @db.Timestamptz(6)
+
+  company            companies?  @relation("CompanyMembers", fields: [company_id], references: [id], onDelete: SetNull)
+  companies_created  companies[] @relation("CompanyCreatedBy")
+  tags_created       tags[]
+  posts_created      posts[]     @relation("PostCreatedBy")
+  favorites          favorites[]
+  moderation_flags   moderation_flags[]
+  audit_log_entries  audit_log[]
+  credential         user_credentials?
+  verification_tokens verification_tokens[]
+  sessions           user_sessions[]
+
+  @@index([company_id])
+  @@index([status])
+}
+
+model companies {
+  id                 String    @id @default(uuid()) @db.Uuid
+  name               String
+  nip                String?   @unique
+  email              String?
+  phone              String?
+  address            String?
+  zip_code           String?
+  city               String?
+  lat                Decimal?  @db.Decimal(10, 7)
+  lng                Decimal?  @db.Decimal(10, 7)
+  description        String?
+  avatar_url         String?
+  google_place_id    String?   @unique
+  google_maps_url    String?
+  accepted_terms     Boolean   @default(false)
+  marketing_consent  Boolean   @default(false)
+  created_by         String    @db.Uuid
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(6)
+
+  creator            users     @relation("CompanyCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  members            users[]   @relation("CompanyMembers")
+  posts              posts[]   @relation("PostCompany")
+
+  @@index([city])
+  @@index([lat, lng])
+}
+
+model user_credentials {
+  user_id              String    @id @db.Uuid
+  password_hash        String
+  password_updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @updatedAt @db.Timestamptz(6)
+
+  user                 users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model verification_tokens {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String?   @db.Uuid
+  email          String
+  token_hash     String    @unique
+  type           String
+  expires_at     DateTime  @db.Timestamptz(6)
+  consumed_at    DateTime? @db.Timestamptz(6)
+  requested_ip   String?   @db.Inet
+  user_agent     String?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  user           users?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([email, type])
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+model user_sessions {
+  id                  String    @id @default(uuid()) @db.Uuid
+  user_id             String    @db.Uuid
+  session_token_hash  String    @unique
+  expires_at          DateTime  @db.Timestamptz(6)
+  last_seen_at        DateTime  @default(now()) @db.Timestamptz(6)
+  ip                  String?   @db.Inet
+  user_agent          String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+
+  user                users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+model categories {
+  id          String       @id @default(uuid()) @db.Uuid
+  slug        String       @unique
+  name        String
+  parent_id   String?      @db.Uuid
+  seo_index   Boolean      @default(true)
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime     @updatedAt @db.Timestamptz(6)
+
+  parent      categories?  @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: SetNull)
+  children    categories[] @relation("CategoryTree")
+  posts       posts[]
+
+  @@index([parent_id])
+}
+
+model tags {
+  id          String     @id @default(uuid()) @db.Uuid
+  slug        String     @unique
+  name        String
+  seo_index   Boolean    @default(false)
+  created_by  String?    @db.Uuid
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime   @updatedAt @db.Timestamptz(6)
+
+  creator     users?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  post_tags   post_tags[]
+
+  @@index([created_by])
+}
+
+model posts {
+  id               String       @id @default(uuid()) @db.Uuid
+  title            String
+  slug             String
+  description      String
+  price_cents      Int?
+  currency         String       @default("PLN")
+  category_id      String       @db.Uuid
+  created_by       String       @db.Uuid
+  company_id       String?      @db.Uuid
+  status           String       @default("PENDING_REVIEW")
+  published_at     DateTime?    @db.Timestamptz(6)
+  expires_at       DateTime?    @db.Timestamptz(6)
+  city             String?
+  lat              Decimal?     @db.Decimal(10, 7)
+  lng              Decimal?     @db.Decimal(10, 7)
+  views_count      Int          @default(0)
+  favorites_count  Int          @default(0)
+  is_promoted      Boolean      @default(false)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime     @updatedAt @db.Timestamptz(6)
+  deleted_at       DateTime?    @db.Timestamptz(6)
+
+  category         categories   @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  author           users        @relation("PostCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  company          companies?   @relation("PostCompany", fields: [company_id], references: [id], onDelete: SetNull)
+  tags             post_tags[]
+  images           post_images[]
+  favorited_by     favorites[]
+
+  @@index([status, published_at])
+  @@index([category_id])
+  @@index([created_by])
+  @@index([company_id])
+  @@index([city])
+}
+
+model post_tags {
+  post_id     String    @db.Uuid
+  tag_id      String    @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  post        posts     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  tag         tags      @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([post_id, tag_id])
+  @@index([tag_id])
+}
+
+model post_images {
+  id          String    @id @default(uuid()) @db.Uuid
+  post_id     String    @db.Uuid
+  storage_key String
+  width       Int?
+  height      Int?
+  mime_type   String?
+  size_bytes  Int?
+  sort_order  Int       @default(0)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  post        posts     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@index([post_id, sort_order])
+}
+
+model favorites {
+  user_id     String    @db.Uuid
+  post_id     String    @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  user        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post        posts     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, post_id])
+  @@index([post_id])
+}
+
+model moderation_flags {
+  id          String    @id @default(uuid()) @db.Uuid
+  target_type String
+  target_id   String    @db.Uuid
+  category_id String?   @db.Uuid
+  subcategory_id String? @db.Uuid
+  reason      String
+  details     String?
+  created_by  String?   @db.Uuid
+  status      String    @default("OPEN")
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(6)
+
+  creator     users?    @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  category    moderation_flag_categories? @relation("FlagPrimaryCategory", fields: [category_id], references: [id], onDelete: SetNull)
+  subcategory moderation_flag_categories? @relation("FlagSecondaryCategory", fields: [subcategory_id], references: [id], onDelete: SetNull)
+
+  @@index([target_type, target_id])
+  @@index([status])
+  @@index([category_id])
+  @@index([subcategory_id])
+}
+
+model moderation_flag_categories {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique
+  name        String
+  target_type String    @default("POST")
+  parent_id   String?   @db.Uuid
+  is_active   Boolean   @default(true)
+  sort_order  Int       @default(0)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(6)
+
+  parent      moderation_flag_categories? @relation("ModerationFlagCategoryTree", fields: [parent_id], references: [id], onDelete: SetNull)
+  children    moderation_flag_categories[] @relation("ModerationFlagCategoryTree")
+  primary_flags moderation_flags[] @relation("FlagPrimaryCategory")
+  secondary_flags moderation_flags[] @relation("FlagSecondaryCategory")
+
+  @@index([target_type, is_active, sort_order])
+  @@index([parent_id])
+}
+
+model audit_log {
+  id             String   @id @default(uuid()) @db.Uuid
+  actor_user_id  String?  @db.Uuid
+  action         String
+  entity_type    String
+  entity_id      String   @db.Uuid
+  metadata_json  Json     @default("{}")
+  ip             String?  @db.Inet
+  user_agent     String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  actor          users?   @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@index([entity_type, entity_id])
+  @@index([actor_user_id])
+  @@index([created_at])
+}
