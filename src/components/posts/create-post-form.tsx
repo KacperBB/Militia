@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Fuse from "fuse.js";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { ListingImagesUploader, type UploadedListingImage } from "@/components/posts/listing-images-uploader";
@@ -9,6 +10,7 @@ import { ListingImagesUploader, type UploadedListingImage } from "@/components/p
 type CategoryOption = {
   id: string;
   name: string;
+  keywords: string | null;
   parent_id: string | null;
 };
 
@@ -105,6 +107,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [didYouMeanDismissed, setDidYouMeanDismissed] = useState(false);
 
   const hasCategories = categories.length > 0;
   const hasValidCategoryId = UUID_LIKE_RE.test(categoryId);
@@ -133,7 +136,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
     return categories
       .map((cat) => {
         const parent = cat.parent_id ? categoryMap.get(cat.parent_id) : undefined;
-        const bag = `${parent?.name ?? ""} ${cat.name}`.toLowerCase();
+        const bag = `${parent?.name ?? ""} ${cat.name} ${cat.keywords ?? ""}`.toLowerCase();
         const score = titleKeywords.reduce((sum, keyword) => {
           if (!bag.includes(keyword)) return sum;
           return sum + keyword.length;
@@ -146,6 +149,35 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
 
   const recommendedCategories = useMemo(() => categoryScores.slice(0, 4).map((entry) => entry.cat), [categoryScores]);
   const bestRecommendedCategory = categoryScores[0]?.cat ?? null;
+
+  const fuse = useMemo(
+    () =>
+      new Fuse(categories, {
+        keys: [
+          { name: "name", weight: 3 },
+          { name: "keywords", weight: 2 },
+        ],
+        threshold: 0.42,
+        includeScore: true,
+        minMatchCharLength: 3,
+      }),
+    [categories],
+  );
+
+  const didYouMeanCategory = useMemo(() => {
+    if (categoryScores.length > 0 || title.trim().length < 3) return null;
+    const results = fuse.search(title.trim());
+    if (!results.length) return null;
+    const best = results[0];
+    if (best.score === undefined || best.score > 0.42) return null;
+    return best.item;
+  }, [categoryScores, title, fuse]);
+
+  const didYouMeanDisplay = useMemo(() => {
+    if (!didYouMeanCategory) return "";
+    const parent = didYouMeanCategory.parent_id ? categoryMap.get(didYouMeanCategory.parent_id) : undefined;
+    return parent ? `${parent.name} / ${didYouMeanCategory.name}` : didYouMeanCategory.name;
+  }, [didYouMeanCategory, categoryMap]);
 
   const filteredCategories = useMemo(() => {
     if (!categorySearchQuery.trim()) return categories;
@@ -169,6 +201,11 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCategoryDropdown]);
+
+  // Reset did-you-mean dismissal when title changes significantly.
+  useEffect(() => {
+    setDidYouMeanDismissed(false);
+  }, [title]);
 
   // Auto-pick category only when user did not explicitly choose one and title is descriptive enough.
   useEffect(() => {
@@ -588,6 +625,33 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                     );
                   })}
                 </div>
+              </div>
+            ) : null}
+
+            {didYouMeanCategory && !didYouMeanDismissed && categoryScores.length === 0 && !categoryId ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+                <p className="flex-1 text-sm text-sky-900">
+                  {tr("Czy chodziło ci o", "Did you mean")}{" "}
+                  <span className="font-semibold">{didYouMeanDisplay}</span>?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(didYouMeanCategory.id);
+                    setCategorySelectionSource("manual");
+                    setCategoryRequiredError(false);
+                  }}
+                  className="rounded-md bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                >
+                  {tr("Tak", "Yes")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDidYouMeanDismissed(true)}
+                  className="rounded-md border border-sky-300 px-3 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                >
+                  {tr("Nie", "No")}
+                </button>
               </div>
             ) : null}
           </div>

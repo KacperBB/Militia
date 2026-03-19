@@ -15,6 +15,7 @@ export async function getCreatePostPageData() {
     select: {
       id: true,
       name: true,
+      keywords: true,
       parent_id: true,
     },
   });

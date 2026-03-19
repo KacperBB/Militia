@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local dev mail previews (may contain one-time tokens)
+.tmp/last-verification-email.json
+.tmp/last-password-reset-email.json

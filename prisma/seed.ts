@@ -69,8 +69,8 @@ async function seedTaxonomy() {
   for (const cat of categories) {
     const saved = await db.categories.upsert({
       where: { slug: cat.slug },
-      update: { name: cat.name },
-      create: { slug: cat.slug, name: cat.name },
+      update: { name: cat.name, keywords: cat.keywords },
+      create: { slug: cat.slug, name: cat.name, keywords: cat.keywords },
       select: { id: true, slug: true },
     });
     categoryIdBySlug.set(saved.slug, saved.id);

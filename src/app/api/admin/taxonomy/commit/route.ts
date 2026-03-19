@@ -65,10 +65,12 @@ export async function POST(request: NextRequest) {
           where: { slug: category.slug },
           update: {
             name: category.name,
+            keywords: category.keywords,
           },
           create: {
             slug: category.slug,
             name: category.name,
+            keywords: category.keywords,
           },
           select: { id: true, slug: true },
         });

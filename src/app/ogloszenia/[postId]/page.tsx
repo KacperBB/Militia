@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AdSlot } from "@/components/adsense/ad-slot";
@@ -7,6 +8,8 @@ import { ListingLocationMap } from "@/components/posts/listing-location-map";
 import { ListingSellerSidebar } from "@/components/posts/listing-seller-sidebar";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type ListingLocationInput = {
   address: string | null;
@@ -43,6 +46,64 @@ function formatCoordinate(value: number) {
   return value.toFixed(4).replace(".", ",");
 }
 
+function serializeJsonLd(value: unknown) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ postId: string }>;
+}): Promise<Metadata> {
+  const { postId } = await params;
+  if (!UUID_RE.test(postId)) return {};
+
+  const post = await db.posts.findUnique({
+    where: { id: postId, deleted_at: null, status: "PUBLISHED" },
+    select: {
+      title: true,
+      description: true,
+      city: true,
+      price_cents: true,
+      currency: true,
+      images: { orderBy: { sort_order: "asc" }, take: 1, select: { storage_key: true } },
+      category: { select: { name: true } },
+    },
+  });
+
+  if (!post) return {};
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").split(",")[0].replace(/\/$/, "");
+  const url = `${appUrl}/ogloszenia/${postId}`;
+  const title = `${post.title} – ${post.category.name} | Militia`;
+  const description = post.description.slice(0, 155).replace(/\n+/g, " ").trim() + (post.description.length > 155 ? "…" : "");
+  const image = post.images[0]?.storage_key ?? null;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "website",
+      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: post.title }] } : {}),
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
+  };
+}
+
 export default async function ListingDetailsPage({
   params,
 }: {
@@ -51,6 +112,8 @@ export default async function ListingDetailsPage({
   const session = await getCurrentSession();
   const { postId } = await params;
 
+  if (!UUID_RE.test(postId)) notFound();
+
   const post = await db.posts.findUnique({
     where: { id: postId },
     include: {
@@ -58,8 +121,6 @@ export default async function ListingDetailsPage({
         select: {
           id: true,
           username: true,
-          email: true,
-          phone: true,
           created_at: true,
         },
       },
@@ -131,7 +192,7 @@ export default async function ListingDetailsPage({
   const mapPageUrl = hasCoordinates && latitude && longitude
     ? `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=14/${latitude.toFixed(6)}/${longitude.toFixed(6)}`
     : post.company?.google_maps_url ?? null;
-  const sellerName = post.company?.name || post.author.username || post.author.email;
+  const sellerName = post.company?.name || post.author.username || "Sprzedawca";
   const sellerLocation = post.company
     ? formatLocationLabel({
         city: post.company.city,
@@ -139,18 +200,47 @@ export default async function ListingDetailsPage({
         zipCode: post.company.zip_code,
       })
     : post.city;
-  const sellerPhone = post.company?.phone || post.author.phone;
-  const sellerEmail = post.company?.email || post.author.email;
+  // Contact details gated: only pass to client when viewer is authenticated (prevents PII scraping)
+  const sellerPhone = session ? (post.contact_phone || post.company?.phone || null) : null;
+  const sellerEmail = session ? (post.company?.email || null) : null;
   const sellerDescription = post.company?.description?.trim()
     ? post.company.description.trim()
     : post.company
-      ? `${post.company.name} prowadzi sprzedaz w serwisie Militia i udostepnia pelne dane kontaktowe dla zainteresowanych.`
-      : "Osoba prywatna sprzedajaca bezposrednio przez serwis Militia.";
+      ? `${post.company.name} prowadzi sprzedaż w serwisie Militia i udostępnia pełne dane kontaktowe dla zainteresowanych.`
+      : "Osoba prywatna sprzedająca bezpośrednio przez serwis Militia.";
 
   const adSlot = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT_POST || "";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").split(",")[0].replace(/\/$/, "");
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Offer",
+    name: post.title,
+    description: post.description.slice(0, 500).replace(/\n+/g, " "),
+    url: `${appUrl}/ogloszenia/${postId}`,
+    ...(post.price_cents !== null
+      ? { price: (post.price_cents / 100).toFixed(2), priceCurrency: post.currency }
+      : {}),
+    availability: "https://schema.org/InStock",
+    ...(post.images[0]?.storage_key ? { image: post.images[0].storage_key } : {}),
+    seller: {
+      "@type": post.company ? "Organization" : "Person",
+      name: sellerName,
+    },
+    itemOffered: {
+      "@type": "Product",
+      name: post.title,
+      description: post.description.slice(0, 500).replace(/\n+/g, " "),
+      category: post.category.name,
+    },
+  };
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-4 p-4 md:p-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
@@ -169,7 +259,7 @@ export default async function ListingDetailsPage({
               <span>Dodano: {new Date(post.created_at).toLocaleString("pl-PL")}</span>
               <span>Lokalizacja: {post.city || post.company?.city || "Brak danych"}</span>
               <span>Sprzedawca: {sellerName}</span>
-              <span>Wyswietlenia: {displayedViewsCount}</span>
+              <span>Wyświetlenia: {displayedViewsCount}</span>
             </div>
 
             <div className="mt-3 flex justify-end">
@@ -188,7 +278,7 @@ export default async function ListingDetailsPage({
             </div>
 
             <section className="mt-6 rounded-2xl bg-slate-50 p-5">
-              <h2 className="text-lg font-bold text-slate-900">Opis ogloszenia</h2>
+              <h2 className="text-lg font-bold text-slate-900">Opis ogłoszenia</h2>
               <div className="mt-3 space-y-4 text-sm leading-7 text-slate-700">
                 {descriptionParagraphs.map((paragraph: string) => (
                   <p key={paragraph}>{paragraph}</p>
@@ -197,7 +287,7 @@ export default async function ListingDetailsPage({
             </section>
 
             <section className="mt-4 rounded-2xl border border-slate-200 p-5">
-              <h2 className="text-lg font-bold text-slate-900">Szczegoly</h2>
+              <h2 className="text-lg font-bold text-slate-900">Szczegóły</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Cena</p>
@@ -208,7 +298,7 @@ export default async function ListingDetailsPage({
                   <p className="mt-1 text-base font-semibold text-slate-900">{post.city || post.company?.city || "Brak danych"}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Wyswietlenia</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Wyświetlenia</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">{displayedViewsCount}</p>
                 </div>
               </div>
@@ -231,7 +321,7 @@ export default async function ListingDetailsPage({
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Okrag pokazuje przyblizony obszar do {radiusKm} km. Dokladny adres nie jest publikowany.
+                  Okrąg pokazuje przybliżony obszar do {radiusKm} km. Dokładny adres nie jest publikowany.
                 </p>
                 {mapPageUrl ? (
                   <a
@@ -240,7 +330,7 @@ export default async function ListingDetailsPage({
                     rel="noreferrer"
                     className="mt-3 inline-flex text-sm font-semibold text-slate-700 underline decoration-slate-300 underline-offset-4 hover:text-slate-900"
                   >
-                    Otworz pelna mape
+                    Otwórz pełną mapę
                   </a>
                 ) : null}
               </section>
@@ -275,6 +365,7 @@ export default async function ListingDetailsPage({
           viewer={{
             isFavorited: Boolean(favorite),
             canFavorite: Boolean(session) && !isOwner,
+            isAuthenticated: Boolean(session),
           }}
         />
       </div>

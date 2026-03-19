@@ -22,6 +22,7 @@ export type ParsedAttribute = {
 export type ParsedCategory = {
   slug: string;
   name: string;
+  keywords: string | null;
   parentSlug: string | null;
   tags: ParsedTag[];
   attributes: ParsedAttribute[];

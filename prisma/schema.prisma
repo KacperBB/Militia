@@ -115,6 +115,7 @@ model categories {
   id          String       @id @default(uuid()) @db.Uuid
   slug        String       @unique
   name        String
+  keywords    String?
   parent_id   String?      @db.Uuid
   seo_index   Boolean      @default(true)
   created_at  DateTime     @default(now()) @db.Timestamptz(6)

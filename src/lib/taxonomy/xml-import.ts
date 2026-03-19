@@ -36,6 +36,7 @@ type XmlCategory = {
   "@_slug"?: string;
   "@_name"?: string;
   "@_parentSlug"?: string;
+  keywords?: string | number | boolean;
   tag?: XmlTag | XmlTag[];
   attribute?: XmlAttribute | XmlAttribute[];
   attributes?: {
@@ -250,9 +251,16 @@ function flattenCategories(items: XmlCategory[], parentSlug: string | null, targ
       attributeSlugs.add(attribute.slug);
     }
 
+    const rawKeywords = item.keywords;
+    const keywords =
+      rawKeywords !== undefined && rawKeywords !== null && String(rawKeywords).trim() !== ""
+        ? String(rawKeywords).trim()
+        : null;
+
     target.push({
       slug: normalizedSlug,
       name: normalizeName(nameRaw),
+      keywords,
       parentSlug: resolvedParentSlug,
       tags,
       attributes,

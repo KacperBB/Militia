@@ -24,19 +24,20 @@ type ListingSellerSidebarProps = {
   viewer: {
     isFavorited: boolean;
     canFavorite: boolean;
+    isAuthenticated: boolean;
   };
 };
 
 export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarProps) {
   const [showPhone, setShowPhone] = useState(false);
 
-  const phoneLabel = useMemo(() => {
-    if (!seller.phone) {
-      return "Brak numeru telefonu";
-    }
+  const canSeeContact = viewer.isAuthenticated;
 
-    return showPhone ? seller.phone : "Pokaz numer telefonu";
-  }, [seller.phone, showPhone]);
+  const phoneLabel = useMemo(() => {
+    if (!canSeeContact) return "Zaloguj się, aby zobaczyć numer";
+    if (!seller.phone) return "Brak numeru telefonu";
+    return showPhone ? seller.phone : "Pokaż numer telefonu";
+  }, [canSeeContact, seller.phone, showPhone]);
 
   return (
     <aside className="space-y-4">
@@ -46,7 +47,7 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
         </p>
         <div className="mt-3 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700">
-            {(seller.name || seller.email || "U").slice(0, 1).toUpperCase()}
+            {(seller.name ?? "U").slice(0, 1).toUpperCase()}
           </div>
           <div>
             <Link href={`/u/${seller.userId}`} className="text-base font-bold text-slate-900 hover:text-amber-700">
@@ -61,23 +62,34 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
             <p className="whitespace-pre-line leading-7 text-slate-700">{seller.companyDescription}</p>
             <div className="rounded-xl bg-slate-50 p-4 whitespace-pre-line">
               <p><span className="font-semibold">Nazwa firmy:</span> {seller.companyName}</p>
-              {seller.nip ? <p><span className="font-semibold">NIP:</span> {seller.nip}</p> : null}
-              {seller.email ? <p><span className="font-semibold">E-mail:</span> {seller.email}</p> : null}
+              {seller.nip && canSeeContact ? <p><span className="font-semibold">NIP:</span> {seller.nip}</p> : null}
+              {canSeeContact && seller.email ? <p><span className="font-semibold">E-mail:</span> {seller.email}</p> : null}
               {seller.address ? <p><span className="font-semibold">Adres:</span>{"\n"}{seller.address}</p> : null}
             </div>
           </div>
         ) : (
           <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
             <p><span className="font-semibold">Kontakt:</span> osoba prywatna</p>
-            {seller.email ? <p className="mt-1"><span className="font-semibold">E-mail:</span> {seller.email}</p> : null}
+            {canSeeContact && seller.email ? <p className="mt-1"><span className="font-semibold">E-mail:</span> {seller.email}</p> : null}
           </div>
         )}
+
+        {!canSeeContact ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-semibold">Dane kontaktowe</p>
+            <p className="mt-1 text-amber-800">
+              <a href="/auth/login" className="underline font-semibold hover:text-amber-950">Zaloguj się</a>, aby zobaczyć numer telefonu i e-mail sprzedawcy.
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-4 space-y-3">
           <button
             type="button"
-            onClick={() => setShowPhone((current) => !current)}
-            disabled={!seller.phone}
+            onClick={() => {
+              if (canSeeContact) setShowPhone((current) => !current);
+            }}
+            disabled={canSeeContact && !seller.phone}
             className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {phoneLabel}

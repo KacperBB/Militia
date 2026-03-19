@@ -1,9 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import nodemailer from "nodemailer";
 
-const fallbackMailPath = path.join(process.cwd(), ".tmp", "last-verification-email.json");
+const devMailDumpDir = process.env.MAIL_DEV_DUMP_DIR?.trim() || path.join(os.tmpdir(), "militia-dev-mail");
+const fallbackMailPath = path.join(devMailDumpDir, "last-verification-email.json");
 
 function createTransport() {
   const host = process.env.SMTP_HOST;
@@ -100,7 +102,7 @@ export async function sendPasswordResetEmail(input: {
   });
 
   if (mode === "dev") {
-    const fallbackResetMailPath = path.join(process.cwd(), ".tmp", "last-password-reset-email.json");
+    const fallbackResetMailPath = path.join(devMailDumpDir, "last-password-reset-email.json");
     const previewMessage = "message" in info ? String(info.message) : "Preview unavailable";
     await mkdir(path.dirname(fallbackResetMailPath), { recursive: true });
     await writeFile(

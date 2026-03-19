@@ -2,6 +2,7 @@
 <taxonomy>
   <!-- ELEKTRONIKA -->
   <category slug="electronics" name="Elektronika">
+    <keywords>elektronika,sprzęt,urządzenie,elektryczny,tech,gadżet</keywords>
     <attributes>
       <!-- Shared attributes for all electronics -->
       <attribute name="Brand" slug="brand" type="text" required="true" />
@@ -15,6 +16,7 @@
 
     <!-- Laptopy -->
     <category slug="computers" name="Komputery">
+      <keywords>komputer,pc,desktop,laptop,notebook,procesor,karta graficzna,gpu,ram</keywords>
       <attributes>
         <attribute name="Model" slug="model" type="text" required="true" />
         <attribute name="Processor" slug="processor" type="text" required="false" />
@@ -30,13 +32,20 @@
         <attribute name="Year" slug="year_manufactured" type="number" required="false" />
       </attributes>
 
-      <category slug="laptops" name="Laptopy" />
-      <category slug="desktops" name="Komputery Stacjonarne" />
-      <category slug="tablets" name="Tablety" />
+      <category slug="laptops" name="Laptopy">
+        <keywords>laptop,notebook,przenośny komputer,macbook,ultrabook,gaming laptop</keywords>
+      </category>
+      <category slug="desktops" name="Komputery Stacjonarne">
+        <keywords>komputer stacjonarny,tower,zestaw komputerowy,desktop,pc stacjonarny</keywords>
+      </category>
+      <category slug="tablets" name="Tablety">
+        <keywords>tablet,ipad,android tablet,touchscreen,e-reader,kindle</keywords>
+      </category>
     </category>
 
     <!-- Telefony -->
     <category slug="phones" name="Telefony">
+      <keywords>telefon,komórka,komórkowy,smartphone,smartfon,aparat telefoniczny</keywords>
       <attributes>
         <attribute name="Model" slug="model" type="text" required="true" />
         <attribute name="Color" slug="color" type="select" required="false">
@@ -58,15 +67,19 @@
       </attributes>
 
       <category slug="smartphones" name="Smartfony">
+        <keywords>smartfon,iphone,android,samsung,xiaomi,pixel,oneplus,huawei</keywords>
         <attributes>
           <attribute name="Screen Size (inch)" slug="screen_size" type="number" required="false" />
         </attributes>
       </category>
-      <category slug="feature-phones" name="Telefony Klasyczne" />
+      <category slug="feature-phones" name="Telefony Klasyczne">
+        <keywords>telefon klasyczny,nokia,przyciski,stary telefon,przyciskowy</keywords>
+      </category>
     </category>
 
     <!-- Audio -->
     <category slug="audio" name="Audio">
+      <keywords>audio,dźwięk,muzyka,hi-fi,sound</keywords>
       <attributes>
         <attribute name="Model" slug="model" type="text" required="true" />
         <attribute name="Type" slug="audio_type" type="select" required="true">
@@ -83,13 +96,18 @@
         <attribute name="Impedance (Ω)" slug="impedance" type="number" required="false" />
       </attributes>
 
-      <category slug="headphones" name="Słuchawki" />
-      <category slug="speakers" name="Głośniki" />
+      <category slug="headphones" name="Słuchawki">
+        <keywords>słuchawki,headset,airpods,douszne,nauszne,bezprzewodowe słuchawki</keywords>
+      </category>
+      <category slug="speakers" name="Głośniki">
+        <keywords>głośniki,soundbar,kolumny,subwoofer,bluetooth głośnik,przenośny głośnik</keywords>
+      </category>
     </category>
   </category>
 
   <!-- ODZIEŻ -->
   <category slug="clothing" name="Odzież">
+    <keywords>odzież,ubranie,ciuchy,strój,moda,fashion,ciuch</keywords>
     <attributes>
       <attribute name="Brand" slug="brand" type="text" required="true" />
       <attribute name="Size" slug="size" type="select" required="true">
@@ -112,6 +130,7 @@
     </attributes>
 
     <category slug="mens-clothing" name="Odzież Męska">
+      <keywords>koszula,spodnie,kurtka,sweter,bluza,męska,mężczyzna,facet,dżinsy,polo</keywords>
       <attributes>
         <attribute name="Type" slug="type" type="select" required="true">
           <option value="shirt">Koszula</option>
@@ -125,6 +144,7 @@
     </category>
 
     <category slug="womens-clothing" name="Odzież Damska">
+      <keywords>sukienka,bluzka,spódnica,damska,kobieta,suknia,top,leginsy</keywords>
       <attributes>
         <attribute name="Type" slug="type" type="select" required="true">
           <option value="dress">Sukienka</option>
@@ -139,6 +159,7 @@
     </category>
 
     <category slug="shoes" name="Obuwie">
+      <keywords>buty,obuwie,sneakersy,sandały,adidasy,trampki,szpilki,kozaki,japonki</keywords>
       <attributes>
         <attribute name="Shoe Size (EU)" slug="shoe_size" type="number" required="true" />
         <attribute name="Type" slug="shoe_type" type="select" required="true">
@@ -153,6 +174,7 @@
 
   <!-- DOM I OGRÓD -->
   <category slug="home-garden" name="Dom i Ogród">
+    <keywords>dom,mieszkanie,wyposażenie,wnętrze,home,decor,dekoracja</keywords>
     <attributes>
       <attribute name="Condition" slug="condition" type="select" required="false">
         <option value="new">Nowy</option>
@@ -162,6 +184,7 @@
     </attributes>
 
     <category slug="furniture" name="Meble">
+      <keywords>meble,stół,krzesło,sofa,kanapa,łóżko,szafa,komoda,regał,fotel,stolik,ława,witryna,narożnik,biurko</keywords>
       <attributes>
         <attribute name="Type" slug="type" type="select" required="true">
           <option value="sofa">Sofa</option>
@@ -180,6 +203,7 @@
     </category>
 
     <category slug="kitchen" name="Kuchnia">
+      <keywords>kuchnia,garnek,patelnia,nóż,naczynia,mikser,blender,ekspres,toster,zmywarka</keywords>
       <attributes>
         <attribute name="Item Type" slug="item_type" type="select" required="true">
           <option value="pots">Garnki</option>
@@ -193,6 +217,7 @@
     </category>
 
     <category slug="garden" name="Ogród">
+      <keywords>ogród,roślina,narzędzia ogrodowe,grządka,trawnik,kosiarka,sadzonka,drzewko,kwiat</keywords>
       <attributes>
         <attribute name="Type" slug="type" type="select" required="true">
           <option value="tools">Narzędzia</option>
@@ -206,6 +231,7 @@
 
   <!-- MOTORYZACJA -->
   <category slug="automotive" name="Motoryzacja">
+    <keywords>motoryzacja,pojazd,auto,wóz,transport,silnik</keywords>
     <attributes>
       <attribute name="Brand" slug="brand" type="text" required="true" />
       <attribute name="Model" slug="model" type="text" required="true" />
@@ -231,6 +257,7 @@
     </attributes>
 
     <category slug="cars" name="Samochody">
+      <keywords>samochód,auto,osobowy,sedan,suv,kombi,hatchback,używany samochód,nowy samochód</keywords>
       <attributes>
         <attribute name="Body Type" slug="body_type" type="select" required="false">
           <option value="sedan">Sedan</option>
@@ -248,6 +275,7 @@
     </category>
 
     <category slug="motorcycles" name="Motocykle">
+      <keywords>motocykl,skuter,motor,jednoślad,quad,enduro,crossowy</keywords>
       <attributes>
         <attribute name="Type" slug="type" type="select" required="false">
           <option value="sport">Sport</option>
@@ -260,6 +288,7 @@
     </category>
 
     <category slug="parts" name="Części i Akcesoria">
+      <keywords>części,akcesoria,felgi,opony,zderzak,reflektor,lusterko,skrzynia biegów</keywords>
       <attributes>
         <attribute name="Part Type" slug="part_type" type="text" required="true" />
         <attribute name="Compatible Brand" slug="compatible_brand" type="text" required="false" />
@@ -270,6 +299,7 @@
 
   <!-- SPORT I REKREACJA -->
   <category slug="sports-recreation" name="Sport i Rekreacja">
+    <keywords>sport,rekreacja,aktywność,trening,ćwiczenia</keywords>
     <attributes>
       <attribute name="Type" slug="type" type="select" required="true">
         <option value="equipment">Sprzęt</option>
@@ -284,6 +314,7 @@
     </attributes>
 
     <category slug="cycling" name="Kolarstwo">
+      <keywords>rower,kolarz,szosa,mtb,trek,bike,bicykl,górski,szosowy,bmx,jednoślad</keywords>
       <attributes>
         <attribute name="Bike Type" slug="bike_type" type="select" required="true">
           <option value="road">Kolarka szosowa</option>
@@ -302,6 +333,7 @@
     </category>
 
     <category slug="fitness" name="Fitness">
+      <keywords>siłownia,hantle,ławka,maszyna orbitrek,bieżnia,kettlebell,trening,gym</keywords>
       <attributes>
         <attribute name="Equipment Type" slug="equipment_type" type="text" required="true" />
         <attribute name="Weight (kg)" slug="weight_kg" type="number" required="false" />
@@ -309,6 +341,7 @@
     </category>
 
     <category slug="outdoor" name="Outdoor">
+      <keywords>camping,namiot,plecak,wspinaczka,trekking,góry,wędrówki,kajakowanie,survival</keywords>
       <attributes>
         <attribute name="Gear Type" slug="gear_type" type="select" required="true">
           <option value="tent">Namiot</option>
@@ -323,6 +356,7 @@
 
   <!-- KSIĄŻKI I MEDIA -->
   <category slug="books-media" name="Książki i Media">
+    <keywords>książka,czytanie,film,płyta,media,literatura</keywords>
     <attributes>
       <attribute name="Title" slug="title" type="text" required="true" />
       <attribute name="Author" slug="author" type="text" required="false" />
@@ -349,6 +383,7 @@
     </attributes>
 
     <category slug="books" name="Książki">
+      <keywords>książka,powieść,lektury,podręcznik,literatura,beletrystyka,komiks,kryminał</keywords>
       <attributes>
         <attribute name="Genre" slug="genre" type="text" required="false" />
         <attribute name="Pages Count" slug="pages_count" type="number" required="false" />
@@ -356,6 +391,7 @@
     </category>
 
     <category slug="movies" name="Filmy">
+      <keywords>film,dvd,bluray,kino,serial,blu-ray,movie,horror,komedia,dramat</keywords>
       <attributes>
         <attribute name="Duration (min)" slug="duration_min" type="number" required="false" />
         <attribute name="Year Released" slug="year_released" type="number" required="false" />
@@ -365,6 +401,7 @@
 
   <!-- USŁUGI -->
   <category slug="services" name="Usługi">
+    <keywords>usługa,zlecenie,pomoc,serwis,praca do wykonania,zamówienie</keywords>
     <attributes>
       <attribute name="Service Type" slug="service_type" type="text" required="true" />
       <attribute name="Experience Level" slug="experience_level" type="select" required="false">
@@ -375,10 +412,18 @@
       <attribute name="Available 24/7" slug="available_24_7" type="boolean" required="false" />
     </attributes>
 
-    <category slug="cleaning" name="Sprzątanie" />
-    <category slug="repairs" name="Naprawy" />
-    <category slug="tutoring" name="Korepetycje" />
-    <category slug="photography" name="Fotografia" />
+    <category slug="cleaning" name="Sprzątanie">
+      <keywords>sprzątanie,czyszczenie,pranie,odkurzanie,mycie,porządki,sprzątaczka</keywords>
+    </category>
+    <category slug="repairs" name="Naprawy">
+      <keywords>naprawa,remont,hydraulik,elektryk,budowlaniec,fachowiec,usługa remontowa</keywords>
+    </category>
+    <category slug="tutoring" name="Korepetycje">
+      <keywords>korepetytor,nauka,lekcje,edukacja,szkoła,matematyka,angielski,nauczyciel</keywords>
+    </category>
+    <category slug="photography" name="Fotografia">
+      <keywords>fotografia,zdjęcia,sesja,fotograf,ślub,portret,reportaż</keywords>
+    </category>
   </category>
 
 </taxonomy>

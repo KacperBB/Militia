@@ -4,7 +4,27 @@ import { z } from "zod";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { badRequest, unauthorized } from "@/lib/security/responses";
+
+const CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+
+function sanitizeSingleLine(value: string) {
+  return value.replace(CONTROL_CHARS_RE, "").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeMultiline(value: string) {
+  return value.replace(CONTROL_CHARS_RE, "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function isHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 const attributeValueSchema = z.object({
   attributeId: z.string().uuid(),
@@ -24,10 +44,16 @@ const createPostSchema = z.object({
   useCompanyProfile: z.boolean().optional(),
   autoRenew: z.boolean().optional(),
   contactName: z.string().trim().min(1).max(140).optional(),
-  contactPhone: z.string().trim().min(3).max(40).optional(),
+  contactPhone: z
+    .string()
+    .trim()
+    .min(3)
+    .max(40)
+    .regex(/^[0-9+\-\s()]{3,40}$/, "Invalid phone number format.")
+    .optional(),
   city: z.string().trim().min(2).max(120),
   googlePlaceId: z.string().trim().max(200).optional(),
-  googleMapsUrl: z.string().url().max(500).optional(),
+  googleMapsUrl: z.string().url().max(500).refine(isHttpUrl, "Only HTTP(S) URLs are allowed.").optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
   images: z
@@ -76,7 +102,6 @@ export async function GET() {
         select: {
           id: true,
           username: true,
-          email: true,
           avatar_url: true,
         },
       },
@@ -114,7 +139,6 @@ export async function GET() {
         author: {
           id: post.author.id,
           username: post.author.username,
-          email: post.author.email,
           avatarUrl: post.author.avatar_url,
         },
         coverImageUrl: post.images[0]?.storage_key ?? null,
@@ -140,6 +164,14 @@ export async function POST(request: NextRequest) {
     return unauthorized("You must be logged in.");
   }
 
+  const rl = enforceRateLimit({ key: `post-create:${session.user.id}`, limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { message: "Zbyt wiele ogłoszeń. Spróbuj ponownie za chwilę." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+    );
+  }
+
   if (session.user.status !== "ACTIVE") {
     return NextResponse.json({ message: "Account is not active." }, { status: 403 });
   }
@@ -161,6 +193,11 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsedInput.data;
+  const normalizedTitle = sanitizeSingleLine(input.title);
+  const normalizedDescription = sanitizeMultiline(input.description);
+  const normalizedCity = sanitizeSingleLine(input.city);
+  const normalizedContactName = input.contactName ? sanitizeSingleLine(input.contactName) : null;
+  const normalizedContactPhone = input.contactPhone ? sanitizeSingleLine(input.contactPhone) : null;
 
   const category = await db.categories.findUnique({
     where: { id: input.categoryId },
@@ -232,25 +269,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const slugBase = slugify(input.title);
+  const slugBase = slugify(normalizedTitle);
   const uniquePart = crypto.randomUUID().slice(0, 8);
   const slug = `${slugBase}-${uniquePart}`;
 
   const created = await db.$transaction(async (tx) => {
     const post = await tx.posts.create({
       data: {
-        title: input.title,
+        title: normalizedTitle,
         slug,
-        description: input.description,
+        description: normalizedDescription,
         category_id: input.categoryId,
         created_by: session.user.id,
         company_id: input.useCompanyProfile ? session.user.company_id ?? null : null,
         price_cents: input.priceCents,
         is_negotiable: input.isNegotiable ?? false,
         auto_renew: input.autoRenew ?? false,
-        contact_name: input.contactName ?? null,
-        contact_phone: input.contactPhone ?? null,
-        city: input.city,
+        contact_name: normalizedContactName,
+        contact_phone: normalizedContactPhone,
+        city: normalizedCity,
         lat: input.lat,
         lng: input.lng,
         status: "PUBLISHED",
@@ -268,7 +305,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         author: {
-          select: { id: true, username: true, email: true, avatar_url: true },
+          select: { id: true, username: true, avatar_url: true },
         },
         category: {
           select: { id: true, name: true, slug: true },
@@ -315,7 +352,6 @@ export async function POST(request: NextRequest) {
         author: {
           id: created.author.id,
           username: created.author.username,
-          email: created.author.email,
           avatarUrl: created.author.avatar_url,
         },
         images: created.images.map((image) => image.storage_key),

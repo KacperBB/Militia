@@ -1,8 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AdSlot } from "@/components/adsense/ad-slot";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "Ogłoszenia | Militia",
+  description: "Najnowsze ogłoszenia sprzedaży. Przeglądaj oferty elektroniki, mebli, motoryzacji i więcej na Militia.",
+  openGraph: {
+    title: "Ogłoszenia | Militia",
+    description: "Najnowsze ogłoszenia sprzedaży. Przeglądaj oferty elektroniki, mebli, motoryzacji i więcej.",
+    type: "website",
+  },
+};
 
 function resolveImageSource(storageKey: string | null | undefined) {
   if (!storageKey) {
@@ -41,7 +52,6 @@ export default async function ListingsPage() {
         select: {
           id: true,
           username: true,
-          email: true,
           avatar_url: true,
         },
       },
@@ -70,7 +80,7 @@ export default async function ListingsPage() {
       <header className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Ogloszenia</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Ogłoszenia</h1>
             <p className="mt-1 text-sm text-slate-600">Najnowsze opublikowane oferty w serwisie.</p>
           </div>
           {session ? (
@@ -78,7 +88,7 @@ export default async function ListingsPage() {
               href="/ogloszenia/dodaj"
               className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Dodaj ogloszenie
+              Dodaj ogłoszenie
             </Link>
           ) : null}
         </div>
@@ -89,7 +99,7 @@ export default async function ListingsPage() {
       <section className="space-y-3">
         {posts.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            Brak opublikowanych ogloszen.
+            Brak opublikowanych ogłoszeń.
           </div>
         ) : (
           posts.map((post) => (
@@ -118,7 +128,7 @@ export default async function ListingsPage() {
                     <p className="line-clamp-3 text-sm text-slate-700">{post.description}</p>
                     <div className="text-sm font-semibold text-emerald-700">{formatPrice(post.price_cents, post.currency)}</div>
                         <div className="text-xs text-slate-500">{post.city || "-"}</div>
-                        <div className="text-xs font-medium text-slate-600">Wyswietlenia: {post.views_count}</div>
+                        <div className="text-xs font-medium text-slate-600">Wyświetlenia: {post.views_count}</div>
                   </div>
                 </div>
 
@@ -126,9 +136,9 @@ export default async function ListingsPage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Autor</p>
                   <Link href={`/u/${post.author.id}`} className="mt-2 flex items-center gap-2 hover:text-amber-700">
                     <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-700">
-                      {(post.author.username || post.author.email).slice(0, 1).toUpperCase()}
+                      {(post.author.username ?? "U").slice(0, 1).toUpperCase()}
                     </span>
-                    <span className="text-sm font-semibold text-slate-800">{post.author.username || post.author.email}</span>
+                    <span className="text-sm font-semibold text-slate-800">{post.author.username ?? "Użytkownik"}</span>
                   </Link>
                   <p className="mt-1 text-xs text-slate-500">{new Date(post.created_at).toLocaleDateString("pl-PL")}</p>
                 </div>

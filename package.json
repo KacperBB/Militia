@@ -25,6 +25,7 @@
     "@uploadthing/react": "^7.3.3",
     "bcryptjs": "^3.0.3",
     "fast-xml-parser": "^5.5.6",
+    "fuse.js": "^7.1.0",
     "i18next": "^25.8.18",
     "jose": "^6.2.1",
     "leaflet": "^1.9.4",
