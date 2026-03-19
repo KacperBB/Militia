@@ -43,14 +43,12 @@ export function HomePageContent({ user }: HomePageContentProps) {
                 >
                   {t("home.cta.dashboard", "Go to dashboard")}
                 </Link>
-                {user.role === "USER" ? (
-                  <Link
-                    className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/50"
-                    href="/ogloszenia/dodaj"
-                  >
-                    {t("home.cta.createListing", "Create listing")}
-                  </Link>
-                ) : null}
+                <Link
+                  className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/50"
+                  href="/ogloszenia/dodaj"
+                >
+                  {t("home.cta.createListing", "Create listing")}
+                </Link>
               </>
             )}
           </div>

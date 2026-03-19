@@ -123,8 +123,64 @@ model categories {
   parent      categories?  @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: SetNull)
   children    categories[] @relation("CategoryTree")
   posts       posts[]
+  attributes  category_attributes[]
 
   @@index([parent_id])
+}
+
+model category_attributes {
+  id              String       @id @default(uuid()) @db.Uuid
+  category_id     String       @db.Uuid
+  name            String
+  slug            String
+  attribute_type  String       // "text", "number", "boolean", "date", "select", "multiselect"
+  is_required     Boolean      @default(false)
+  sort_order      Int          @default(0)
+  metadata_json   Json         @default("{}")  // For future extensibility: placeholder, validation rules, etc
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime     @updatedAt @db.Timestamptz(6)
+
+  category        categories   @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  options         category_attribute_options[]
+  post_values     post_attribute_values[]
+
+  @@unique([category_id, slug])
+  @@index([category_id])
+  @@index([attribute_type])
+}
+
+model category_attribute_options {
+  id              String       @id @default(uuid()) @db.Uuid
+  attribute_id    String       @db.Uuid
+  label           String
+  value           String
+  sort_order      Int          @default(0)
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+
+  attribute       category_attributes @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+
+  @@unique([attribute_id, value])
+  @@index([attribute_id])
+}
+
+model post_attribute_values {
+  id              String       @id @default(uuid()) @db.Uuid
+  post_id         String       @db.Uuid
+  attribute_id    String       @db.Uuid
+  value_text      String?
+  value_number    Int?
+  value_boolean   Boolean?
+  value_date      DateTime?
+  value_json      Json?        // For multiselect arrays or complex data
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime     @updatedAt @db.Timestamptz(6)
+
+  post            posts        @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  attribute       category_attributes @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+
+  @@unique([post_id, attribute_id])
+  @@index([post_id])
+  @@index([attribute_id])
 }
 
 model tags {
@@ -148,10 +204,14 @@ model posts {
   slug             String
   description      String
   price_cents      Int?
+  is_negotiable    Boolean      @default(false)
   currency         String       @default("PLN")
   category_id      String       @db.Uuid
   created_by       String       @db.Uuid
   company_id       String?      @db.Uuid
+  contact_name     String?
+  contact_phone    String?
+  auto_renew       Boolean      @default(false)
   status           String       @default("PENDING_REVIEW")
   published_at     DateTime?    @db.Timestamptz(6)
   expires_at       DateTime?    @db.Timestamptz(6)
@@ -171,6 +231,7 @@ model posts {
   tags             post_tags[]
   images           post_images[]
   favorited_by     favorites[]
+  attribute_values post_attribute_values[]
 
   @@index([status, published_at])
   @@index([category_id])

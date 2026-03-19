@@ -1,28 +1,384 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <taxonomy>
-  <category slug="games" name="Games">
-    <category slug="pc" name="PC">
-      <category slug="competitive" name="Competitive">
-        <category slug="team-play" name="Team Play">
-          <category slug="ranked" name="Ranked">
-            <category slug="seasonal" name="Seasonal">
-              <tag slug="fps" name="FPS" />
-              <tag slug="tactical" name="Tactical" />
-            </category>
-          </category>
-        </category>
+  <!-- ELEKTRONIKA -->
+  <category slug="electronics" name="Elektronika">
+    <attributes>
+      <!-- Shared attributes for all electronics -->
+      <attribute name="Brand" slug="brand" type="text" required="true" />
+      <attribute name="Condition" slug="condition" type="select" required="true">
+        <option value="new">Nowy</option>
+        <option value="like-new">Jak nowy</option>
+        <option value="used">Używany</option>
+        <option value="damaged">Uszkodzony</option>
+      </attribute>
+    </attributes>
+
+    <!-- Laptopy -->
+    <category slug="computers" name="Komputery">
+      <attributes>
+        <attribute name="Model" slug="model" type="text" required="true" />
+        <attribute name="Processor" slug="processor" type="text" required="false" />
+        <attribute name="RAM (GB)" slug="ram_gb" type="number" required="false" />
+        <attribute name="Storage Type" slug="storage_type" type="select" required="false">
+          <option value="hdd">HDD</option>
+          <option value="ssd">SSD</option>
+          <option value="nvme">NVMe SSD</option>
+        </attribute>
+        <attribute name="Storage Size (GB)" slug="storage_size" type="number" required="false" />
+        <attribute name="GPU" slug="gpu" type="text" required="false" />
+        <attribute name="Display Size (inch)" slug="display_size" type="number" required="false" />
+        <attribute name="Year" slug="year_manufactured" type="number" required="false" />
+      </attributes>
+
+      <category slug="laptops" name="Laptopy" />
+      <category slug="desktops" name="Komputery Stacjonarne" />
+      <category slug="tablets" name="Tablety" />
+    </category>
+
+    <!-- Telefony -->
+    <category slug="phones" name="Telefony">
+      <attributes>
+        <attribute name="Model" slug="model" type="text" required="true" />
+        <attribute name="Color" slug="color" type="select" required="false">
+          <option value="black">Czarny</option>
+          <option value="white">Biały</option>
+          <option value="silver">Srebrny</option>
+          <option value="gold">Złoty</option>
+          <option value="blue">Niebieski</option>
+          <option value="red">Czerwony</option>
+          <option value="green">Zielony</option>
+          <option value="other">Inny</option>
+        </attribute>
+        <attribute name="Storage (GB)" slug="storage_gb" type="number" required="false" />
+        <attribute name="RAM (GB)" slug="ram_gb" type="number" required="false" />
+        <attribute name="Year" slug="year_released" type="number" required="false" />
+        <attribute name="Has Original Box" slug="has_box" type="boolean" required="false" />
+        <attribute name="Has Original Charger" slug="has_charger" type="boolean" required="false" />
+        <attribute name="Battery Health (%)" slug="battery_health" type="number" required="false" />
+      </attributes>
+
+      <category slug="smartphones" name="Smartfony">
+        <attributes>
+          <attribute name="Screen Size (inch)" slug="screen_size" type="number" required="false" />
+        </attributes>
       </category>
+      <category slug="feature-phones" name="Telefony Klasyczne" />
+    </category>
+
+    <!-- Audio -->
+    <category slug="audio" name="Audio">
+      <attributes>
+        <attribute name="Model" slug="model" type="text" required="true" />
+        <attribute name="Type" slug="audio_type" type="select" required="true">
+          <option value="headphones">Słuchawki</option>
+          <option value="speakers">Głośniki</option>
+          <option value="microphone">Mikrofon</option>
+          <option value="amplifier">Wzmacniacz</option>
+        </attribute>
+        <attribute name="Connection" slug="connection" type="select" required="false">
+          <option value="wired">Przewodowe</option>
+          <option value="wireless">Bezprzewodowe</option>
+          <option value="both">Oba</option>
+        </attribute>
+        <attribute name="Impedance (Ω)" slug="impedance" type="number" required="false" />
+      </attributes>
+
+      <category slug="headphones" name="Słuchawki" />
+      <category slug="speakers" name="Głośniki" />
     </category>
   </category>
 
-  <category slug="hardware" name="Hardware">
-    <category slug="components" name="Components">
-      <category slug="graphics-cards" name="Graphics Cards">
-        <tag slug="gpu" name="GPU" />
-        <tag slug="rtx" name="RTX" />
-      </category>
-      <category slug="processors" name="Processors">
-        <tag slug="cpu" name="CPU" />
-      </category>
+  <!-- ODZIEŻ -->
+  <category slug="clothing" name="Odzież">
+    <attributes>
+      <attribute name="Brand" slug="brand" type="text" required="true" />
+      <attribute name="Size" slug="size" type="select" required="true">
+        <option value="xs">XS</option>
+        <option value="s">S</option>
+        <option value="m">M</option>
+        <option value="l">L</option>
+        <option value="xl">XL</option>
+        <option value="xxl">XXL</option>
+        <option value="xxxl">XXXL</option>
+      </attribute>
+      <attribute name="Color" slug="color" type="text" required="false" />
+      <attribute name="Material" slug="material" type="text" required="false" />
+      <attribute name="Condition" slug="condition" type="select" required="true">
+        <option value="new">Nowy</option>
+        <option value="like-new">Jak nowy</option>
+        <option value="used">Używany</option>
+        <option value="worn">Noszony</option>
+      </attribute>
+    </attributes>
+
+    <category slug="mens-clothing" name="Odzież Męska">
+      <attributes>
+        <attribute name="Type" slug="type" type="select" required="true">
+          <option value="shirt">Koszula</option>
+          <option value="pants">Spodnie</option>
+          <option value="jacket">Kurtka</option>
+          <option value="sweater">Sweter</option>
+          <option value="t-shirt">T-shirt</option>
+          <option value="shoes">Obuwie</option>
+        </attribute>
+      </attributes>
+    </category>
+
+    <category slug="womens-clothing" name="Odzież Damska">
+      <attributes>
+        <attribute name="Type" slug="type" type="select" required="true">
+          <option value="dress">Sukienka</option>
+          <option value="shirt">Koszula</option>
+          <option value="pants">Spodnie</option>
+          <option value="skirt">Spódnica</option>
+          <option value="jacket">Kurtka</option>
+          <option value="sweater">Sweter</option>
+          <option value="shoes">Obuwie</option>
+        </attribute>
+      </attributes>
+    </category>
+
+    <category slug="shoes" name="Obuwie">
+      <attributes>
+        <attribute name="Shoe Size (EU)" slug="shoe_size" type="number" required="true" />
+        <attribute name="Type" slug="shoe_type" type="select" required="true">
+          <option value="sneakers">Buty sportowe</option>
+          <option value="boots">Buty</option>
+          <option value="sandals">Sandały</option>
+          <option value="formal">Obuwie eleganckie</option>
+        </attribute>
+      </attributes>
     </category>
   </category>
+
+  <!-- DOM I OGRÓD -->
+  <category slug="home-garden" name="Dom i Ogród">
+    <attributes>
+      <attribute name="Condition" slug="condition" type="select" required="false">
+        <option value="new">Nowy</option>
+        <option value="like-new">Jak nowy</option>
+        <option value="used">Używany</option>
+      </attribute>
+    </attributes>
+
+    <category slug="furniture" name="Meble">
+      <attributes>
+        <attribute name="Type" slug="type" type="select" required="true">
+          <option value="sofa">Sofa</option>
+          <option value="table">Stół</option>
+          <option value="chair">Krzesło</option>
+          <option value="bed">Łóżko</option>
+          <option value="cabinet">Szafka</option>
+          <option value="shelf">Regał</option>
+        </attribute>
+        <attribute name="Material" slug="material" type="text" required="false" />
+        <attribute name="Color" slug="color" type="text" required="false" />
+        <attribute name="Width (cm)" slug="width" type="number" required="false" />
+        <attribute name="Height (cm)" slug="height" type="number" required="false" />
+        <attribute name="Depth (cm)" slug="depth" type="number" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="kitchen" name="Kuchnia">
+      <attributes>
+        <attribute name="Item Type" slug="item_type" type="select" required="true">
+          <option value="pots">Garnki</option>
+          <option value="pans">Patelnie</option>
+          <option value="knives">Noże</option>
+          <option value="utensils">Przybory</option>
+          <option value="dishes">Naczynia</option>
+        </attribute>
+        <attribute name="Material" slug="material" type="text" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="garden" name="Ogród">
+      <attributes>
+        <attribute name="Type" slug="type" type="select" required="true">
+          <option value="tools">Narzędzia</option>
+          <option value="plants">Rośliny</option>
+          <option value="furniture">Meble ogrodowe</option>
+          <option value="equipment">Sprzęt</option>
+        </attribute>
+      </attributes>
+    </category>
+  </category>
+
+  <!-- MOTORYZACJA -->
+  <category slug="automotive" name="Motoryzacja">
+    <attributes>
+      <attribute name="Brand" slug="brand" type="text" required="true" />
+      <attribute name="Model" slug="model" type="text" required="true" />
+      <attribute name="Year" slug="year_manufactured" type="number" required="true" />
+      <attribute name="Mileage (km)" slug="mileage_km" type="number" required="false" />
+      <attribute name="Fuel Type" slug="fuel_type" type="select" required="false">
+        <option value="petrol">Benzyna</option>
+        <option value="diesel">Diesel</option>
+        <option value="electric">Elektryczny</option>
+        <option value="hybrid">Hybrida</option>
+        <option value="lpg">LPG</option>
+      </attribute>
+      <attribute name="Transmission" slug="transmission" type="select" required="false">
+        <option value="manual">Manualna</option>
+        <option value="automatic">Automatyczna</option>
+      </attribute>
+      <attribute name="Condition" slug="condition" type="select" required="false">
+        <option value="excellent">Doskonały</option>
+        <option value="good">Dobry</option>
+        <option value="fair">Zadowalający</option>
+        <option value="damaged">Uszkodzony</option>
+      </attribute>
+    </attributes>
+
+    <category slug="cars" name="Samochody">
+      <attributes>
+        <attribute name="Body Type" slug="body_type" type="select" required="false">
+          <option value="sedan">Sedan</option>
+          <option value="suv">SUV</option>
+          <option value="hatchback">Hatchback</option>
+          <option value="wagon">Kombi</option>
+          <option value="van">Van</option>
+          <option value="coupe">Coupe</option>
+        </attribute>
+        <attribute name="Engine Displacement (cc)" slug="engine_cc" type="number" required="false" />
+        <attribute name="Power (hp)" slug="power_hp" type="number" required="false" />
+        <attribute name="Seats Count" slug="seats_count" type="number" required="false" />
+        <attribute name="Has Accident History" slug="has_accident" type="boolean" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="motorcycles" name="Motocykle">
+      <attributes>
+        <attribute name="Type" slug="type" type="select" required="false">
+          <option value="sport">Sport</option>
+          <option value="cruiser">Cruiser</option>
+          <option value="touring">Touring</option>
+          <option value="street">Street</option>
+        </attribute>
+        <attribute name="Engine Displacement (cc)" slug="engine_cc" type="number" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="parts" name="Części i Akcesoria">
+      <attributes>
+        <attribute name="Part Type" slug="part_type" type="text" required="true" />
+        <attribute name="Compatible Brand" slug="compatible_brand" type="text" required="false" />
+        <attribute name="Compatible Model" slug="compatible_model" type="text" required="false" />
+      </attributes>
+    </category>
+  </category>
+
+  <!-- SPORT I REKREACJA -->
+  <category slug="sports-recreation" name="Sport i Rekreacja">
+    <attributes>
+      <attribute name="Type" slug="type" type="select" required="true">
+        <option value="equipment">Sprzęt</option>
+        <option value="clothing">Odzież</option>
+        <option value="footwear">Obuwie</option>
+      </attribute>
+      <attribute name="Condition" slug="condition" type="select" required="false">
+        <option value="new">Nowy</option>
+        <option value="like-new">Jak nowy</option>
+        <option value="used">Używany</option>
+      </attribute>
+    </attributes>
+
+    <category slug="cycling" name="Kolarstwo">
+      <attributes>
+        <attribute name="Bike Type" slug="bike_type" type="select" required="true">
+          <option value="road">Kolarka szosowa</option>
+          <option value="mountain">Rower górski</option>
+          <option value="hybrid">Rower hybrydowy</option>
+          <option value="bmx">BMX</option>
+        </attribute>
+        <attribute name="Frame Size (cm)" slug="frame_size" type="number" required="false" />
+        <attribute name="Frame Material" slug="frame_material" type="select" required="false">
+          <option value="steel">Stal</option>
+          <option value="aluminum">Aluminium</option>
+          <option value="carbon">Karbon</option>
+        </attribute>
+        <attribute name="Number of Gears" slug="num_gears" type="number" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="fitness" name="Fitness">
+      <attributes>
+        <attribute name="Equipment Type" slug="equipment_type" type="text" required="true" />
+        <attribute name="Weight (kg)" slug="weight_kg" type="number" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="outdoor" name="Outdoor">
+      <attributes>
+        <attribute name="Gear Type" slug="gear_type" type="select" required="true">
+          <option value="tent">Namiot</option>
+          <option value="backpack">Plecak</option>
+          <option value="sleeping-bag">Śpiwór</option>
+          <option value="hiking-boots">Buty turystyczne</option>
+        </attribute>
+        <attribute name="Brand" slug="brand" type="text" required="false" />
+      </attributes>
+    </category>
+  </category>
+
+  <!-- KSIĄŻKI I MEDIA -->
+  <category slug="books-media" name="Książki i Media">
+    <attributes>
+      <attribute name="Title" slug="title" type="text" required="true" />
+      <attribute name="Author" slug="author" type="text" required="false" />
+      <attribute name="Type" slug="type" type="select" required="true">
+        <option value="book">Książka</option>
+        <option value="ebook">E-book</option>
+        <option value="audiobook">Audiobook</option>
+        <option value="magazine">Magazyn</option>
+        <option value="dvd">DVD</option>
+        <option value="bluray">Blu-ray</option>
+      </attribute>
+      <attribute name="Language" slug="language" type="select" required="false">
+        <option value="polish">Polski</option>
+        <option value="english">English</option>
+        <option value="german">Deutsch</option>
+        <option value="french">Français</option>
+      </attribute>
+      <attribute name="Condition" slug="condition" type="select" required="false">
+        <option value="new">Nowy</option>
+        <option value="like-new">Jak nowy</option>
+        <option value="used">Używany</option>
+      </attribute>
+      <attribute name="Year Published" slug="year_published" type="number" required="false" />
+    </attributes>
+
+    <category slug="books" name="Książki">
+      <attributes>
+        <attribute name="Genre" slug="genre" type="text" required="false" />
+        <attribute name="Pages Count" slug="pages_count" type="number" required="false" />
+      </attributes>
+    </category>
+
+    <category slug="movies" name="Filmy">
+      <attributes>
+        <attribute name="Duration (min)" slug="duration_min" type="number" required="false" />
+        <attribute name="Year Released" slug="year_released" type="number" required="false" />
+      </attributes>
+    </category>
+  </category>
+
+  <!-- USŁUGI -->
+  <category slug="services" name="Usługi">
+    <attributes>
+      <attribute name="Service Type" slug="service_type" type="text" required="true" />
+      <attribute name="Experience Level" slug="experience_level" type="select" required="false">
+        <option value="beginner">Początkujący</option>
+        <option value="intermediate">Średniozaawansowany</option>
+        <option value="expert">Ekspert</option>
+      </attribute>
+      <attribute name="Available 24/7" slug="available_24_7" type="boolean" required="false" />
+    </attributes>
+
+    <category slug="cleaning" name="Sprzątanie" />
+    <category slug="repairs" name="Naprawy" />
+    <category slug="tutoring" name="Korepetycje" />
+    <category slug="photography" name="Fotografia" />
+  </category>
+
 </taxonomy>

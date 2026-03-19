@@ -6,9 +6,14 @@ import { db } from "@/lib/db";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { badRequest, unauthorized } from "@/lib/security/responses";
 
+const uuidLikeSchema = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  "Invalid identifier format.",
+);
+
 const postFlagSchema = z.object({
-  categoryId: z.string().uuid(),
-  subcategoryId: z.string().uuid().optional(),
+  categoryId: uuidLikeSchema,
+  subcategoryId: uuidLikeSchema.optional(),
   details: z.string().trim().max(1500).optional(),
 });
 
@@ -40,6 +45,13 @@ export async function POST(
 
   const { postId } = await params;
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(postId)) {
+    return NextResponse.json({ message: "Invalid post identifier." }, { status: 400 });
+  }
+
+  try {
+
   const post = await db.posts.findUnique({
     where: { id: postId },
     select: {
@@ -54,7 +66,15 @@ export async function POST(
   }
 
   const body = await request.json();
-  const input = postFlagSchema.parse(body);
+  const parsedInput = postFlagSchema.safeParse(body);
+
+  if (!parsedInput.success) {
+    const firstIssue = parsedInput.error.issues[0];
+    const message = firstIssue?.message || "Invalid report payload.";
+    return NextResponse.json({ message }, { status: 400 });
+  }
+
+  const input = parsedInput.data;
 
   const [category, subcategory] = await Promise.all([
     db.moderation_flag_categories.findUnique({
@@ -140,4 +160,9 @@ export async function POST(
     },
     { status: 201 },
   );
+
+  } catch (error) {
+    console.error("[POST flags] Unexpected error:", error);
+    return NextResponse.json({ message: "An unexpected error occurred. Please try again." }, { status: 500 });
+  }
 }

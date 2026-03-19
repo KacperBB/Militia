@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+
+import { parseTaxonomyXml } from "../src/lib/taxonomy/xml-import";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -53,6 +57,79 @@ function getPasswordPepper() {
 
 async function hashSeedPassword(password: string) {
   return bcrypt.hash(`${password}:${getPasswordPepper()}`, 12);
+}
+
+async function seedTaxonomy() {
+  const xmlPath = join(__dirname, "..", "public", "mock", "taxonomy-sample.xml");
+  const xml = readFileSync(xmlPath, "utf-8");
+  const categories = parseTaxonomyXml(xml);
+
+  // 1. Upsert all categories (without parent links first).
+  const categoryIdBySlug = new Map<string, string>();
+  for (const cat of categories) {
+    const saved = await db.categories.upsert({
+      where: { slug: cat.slug },
+      update: { name: cat.name },
+      create: { slug: cat.slug, name: cat.name },
+      select: { id: true, slug: true },
+    });
+    categoryIdBySlug.set(saved.slug, saved.id);
+  }
+
+  // 2. Apply parent links.
+  for (const cat of categories) {
+    const categoryId = categoryIdBySlug.get(cat.slug);
+    if (!categoryId) continue;
+    await db.categories.update({
+      where: { id: categoryId },
+      data: {
+        parent_id: cat.parentSlug ? (categoryIdBySlug.get(cat.parentSlug) ?? null) : null,
+      },
+    });
+  }
+
+  // 3. Upsert attributes and their options.
+  for (const cat of categories) {
+    const categoryId = categoryIdBySlug.get(cat.slug);
+    if (!categoryId || cat.attributes.length === 0) continue;
+
+    for (const attr of cat.attributes) {
+      const savedAttr = await db.category_attributes.upsert({
+        where: { category_id_slug: { category_id: categoryId, slug: attr.slug } },
+        update: {
+          name: attr.name,
+          attribute_type: attr.type,
+          is_required: attr.isRequired,
+          sort_order: attr.sortOrder,
+        },
+        create: {
+          category_id: categoryId,
+          slug: attr.slug,
+          name: attr.name,
+          attribute_type: attr.type,
+          is_required: attr.isRequired,
+          sort_order: attr.sortOrder,
+        },
+        select: { id: true },
+      });
+
+      for (const opt of attr.options) {
+        await db.category_attribute_options.upsert({
+          where: { attribute_id_value: { attribute_id: savedAttr.id, value: opt.value } },
+          update: { label: opt.label, sort_order: opt.sortOrder },
+          create: {
+            attribute_id: savedAttr.id,
+            value: opt.value,
+            label: opt.label,
+            sort_order: opt.sortOrder,
+          },
+        });
+      }
+    }
+  }
+
+  const total = await db.categories.count();
+  console.log(`Taxonomy seeded: ${categories.length} XML categories → ${total} total in DB.`);
 }
 
 async function main() {
@@ -140,6 +217,7 @@ async function main() {
         role: "USER",
         status: "ACTIVE",
         marketing_consent: true,
+        email_verified_at: new Date("2026-03-17T10:40:00.000Z"),
       },
       {
         id: ids.userModerator,
@@ -361,6 +439,8 @@ async function main() {
       user_agent: "seed-script",
     },
   });
+
+  await seedTaxonomy();
 
   const counts = {
     users: await db.users.count(),

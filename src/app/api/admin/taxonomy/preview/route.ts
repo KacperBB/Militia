@@ -3,7 +3,13 @@ import { z } from "zod";
 
 import { getCurrentSession } from "@/lib/auth/session";
 import { createTaxonomyDraft } from "@/lib/taxonomy/draft-store";
-import { buildTaxonomyTree, countUniqueTags, parseTaxonomyXml } from "@/lib/taxonomy/xml-import";
+import {
+  buildTaxonomyTree,
+  countAttributeOptions,
+  countAttributes,
+  countUniqueTags,
+  parseTaxonomyXml,
+} from "@/lib/taxonomy/xml-import";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { badRequest, unauthorized } from "@/lib/security/responses";
 
@@ -35,10 +41,14 @@ export async function POST(request: NextRequest) {
     const input = previewSchema.parse(body);
     const categories = parseTaxonomyXml(input.xml);
     const tagsCount = countUniqueTags(categories);
+    const attributesCount = countAttributes(categories);
+    const attributeOptionsCount = countAttributeOptions(categories);
     const draft = createTaxonomyDraft({
       createdByUserId: session.user.id,
       categories,
       tagsCount,
+      attributesCount,
+      attributeOptionsCount,
     });
 
     return NextResponse.json(
@@ -47,6 +57,8 @@ export async function POST(request: NextRequest) {
         summary: {
           categoriesCount: categories.length,
           tagsCount,
+          attributesCount,
+          attributeOptionsCount,
         },
         tree: buildTaxonomyTree(categories),
       },

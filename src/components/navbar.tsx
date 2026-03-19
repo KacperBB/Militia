@@ -138,14 +138,12 @@ export function Navbar() {
               <div className="h-10 w-20 animate-pulse rounded bg-slate-200" />
             ) : user ? (
               <>
-                {user.role === 'USER' ? (
-                  <Link
-                    href="/ogloszenia/dodaj"
-                    className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-300"
-                  >
-                    Dodaj ogloszenie
-                  </Link>
-                ) : null}
+                <Link
+                  href="/ogloszenia/dodaj"
+                  className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-300"
+                >
+                  Dodaj ogloszenie
+                </Link>
                 <Link
                   href="/ogloszenia"
                   className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
@@ -177,15 +175,13 @@ export function Navbar() {
                       >
                         📊 {t('nav.dashboard', 'Dashboard')}
                       </Link>
-                      {user.role === 'USER' ? (
-                        <Link
-                          href="/ogloszenia/dodaj"
-                          className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                          onClick={() => setShowMenu(false)}
-                        >
-                          ➕ Dodaj ogloszenie
-                        </Link>
-                      ) : null}
+                      <Link
+                        href="/ogloszenia/dodaj"
+                        className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        ➕ Dodaj ogloszenie
+                      </Link>
                       <Link
                         href="/auth/settings"
                         className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"

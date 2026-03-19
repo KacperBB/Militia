@@ -47,7 +47,24 @@ export function isTrustedOrigin(request: NextRequest) {
         .filter(Boolean)
     : [];
 
-  const rawAllowedOrigins = [request.nextUrl.origin, ...configuredOrigins];
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
+  const host = request.headers.get("host")?.trim();
+
+  const inferredForwardedOrigin = forwardedHost
+    ? `${forwardedProto || request.nextUrl.protocol.replace(":", "")}://${forwardedHost}`
+    : null;
+
+  const inferredHostOrigin = host
+    ? `${forwardedProto || request.nextUrl.protocol.replace(":", "")}://${host}`
+    : null;
+
+  const rawAllowedOrigins = [
+    request.nextUrl.origin,
+    inferredForwardedOrigin,
+    inferredHostOrigin,
+    ...configuredOrigins,
+  ].filter((value): value is string => Boolean(value));
   const allowedOrigins = new Set<string>();
   const allowedHostPort = new Set<string>();
 

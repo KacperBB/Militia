@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 
 import { AdSlot } from "@/components/adsense/ad-slot";
+import { ReportFlagWizardTrigger } from "@/components/moderation/report-flag-wizard-trigger";
 import { ListingGallery } from "@/components/posts/listing-gallery";
 import { ListingLocationMap } from "@/components/posts/listing-location-map";
 import { ListingSellerSidebar } from "@/components/posts/listing-seller-sidebar";
-import { ReportPostForm } from "@/components/posts/report-post-form";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
@@ -127,7 +127,7 @@ export default async function ListingDetailsPage({
   const latitude = post.lat ? Number(post.lat) : null;
   const longitude = post.lng ? Number(post.lng) : null;
   const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
-  const radiusKm = 20;
+  const radiusKm = 10;
   const mapPageUrl = hasCoordinates && latitude && longitude
     ? `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=14/${latitude.toFixed(6)}/${longitude.toFixed(6)}`
     : post.company?.google_maps_url ?? null;
@@ -170,6 +170,17 @@ export default async function ListingDetailsPage({
               <span>Lokalizacja: {post.city || post.company?.city || "Brak danych"}</span>
               <span>Sprzedawca: {sellerName}</span>
               <span>Wyswietlenia: {displayedViewsCount}</span>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <ReportFlagWizardTrigger
+                targetType="POST"
+                targetId={post.id}
+                submitUrl={`/api/posts/${post.id}/flags`}
+                categoriesTargetType="POST"
+                triggerLabel="Zglos ogloszenie"
+                modalTitle="Zgloszenie ogloszenia"
+              />
             </div>
 
             <div className="mt-6">
@@ -235,8 +246,6 @@ export default async function ListingDetailsPage({
               </section>
             ) : null}
           </article>
-
-          <ReportPostForm postId={post.id} />
 
           {adSlot ? <AdSlot slot={adSlot} className="min-h-22.5" /> : null}
         </div>

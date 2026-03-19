@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = commitSchema.parse(body);
     const draft = getTaxonomyDraft(input.draftId);
+    let removedCategoriesCount = 0;
+    let removedTagsCount = 0;
 
     if (!draft) {
       return NextResponse.json({ message: "Draft not found or expired." }, { status: 404 });
@@ -86,6 +89,35 @@ export async function POST(request: NextRequest) {
             parent_id: category.parentSlug ? categoryIdBySlug.get(category.parentSlug) ?? null : null,
           },
         });
+      }
+
+      const importedCategorySlugs = draft.categories.map((category) => category.slug);
+
+      if (importedCategorySlugs.length > 0) {
+        const staleCategories = await tx.categories.findMany({
+          where: {
+            slug: {
+              notIn: importedCategorySlugs,
+            },
+            posts: {
+              none: {},
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (staleCategories.length > 0) {
+          removedCategoriesCount = staleCategories.length;
+          await tx.categories.deleteMany({
+            where: {
+              id: {
+                in: staleCategories.map((category) => category.id),
+              },
+            },
+          });
+        }
       }
 
       const uniqueTags = new Map<string, string>();
@@ -142,18 +174,148 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+
+      const orphanTagResult = await tx.$executeRawUnsafe(`
+        DELETE FROM tags t
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM post_tags pt
+          WHERE pt.tag_id = t.id
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM category_tags ct
+          WHERE ct.tag_id = t.id
+        )
+      `);
+
+      removedTagsCount = Number(orphanTagResult ?? 0);
+
+      for (const category of draft.categories) {
+        const categoryId = categoryIdBySlug.get(category.slug);
+
+        if (!categoryId) {
+          continue;
+        }
+
+        for (const attribute of category.attributes) {
+          const savedAttribute = await tx.category_attributes.upsert({
+            where: {
+              category_id_slug: {
+                category_id: categoryId,
+                slug: attribute.slug,
+              },
+            },
+            update: {
+              name: attribute.name,
+              attribute_type: attribute.type,
+              is_required: attribute.isRequired,
+              sort_order: attribute.sortOrder,
+              metadata_json: attribute.metadata,
+            },
+            create: {
+              category_id: categoryId,
+              name: attribute.name,
+              slug: attribute.slug,
+              attribute_type: attribute.type,
+              is_required: attribute.isRequired,
+              sort_order: attribute.sortOrder,
+              metadata_json: attribute.metadata,
+            },
+            select: {
+              id: true,
+              slug: true,
+            },
+          });
+
+          const currentOptionValues = attribute.options.map((option) => option.value);
+
+          if (currentOptionValues.length) {
+            await tx.category_attribute_options.deleteMany({
+              where: {
+                attribute_id: savedAttribute.id,
+                value: {
+                  notIn: currentOptionValues,
+                },
+              },
+            });
+          } else {
+            await tx.category_attribute_options.deleteMany({
+              where: {
+                attribute_id: savedAttribute.id,
+              },
+            });
+          }
+
+          for (const option of attribute.options) {
+            await tx.category_attribute_options.upsert({
+              where: {
+                attribute_id_value: {
+                  attribute_id: savedAttribute.id,
+                  value: option.value,
+                },
+              },
+              update: {
+                label: option.label,
+                sort_order: option.sortOrder,
+              },
+              create: {
+                attribute_id: savedAttribute.id,
+                label: option.label,
+                value: option.value,
+                sort_order: option.sortOrder,
+              },
+            });
+          }
+        }
+
+        const importedAttributeSlugs = category.attributes.map((attribute) => attribute.slug);
+
+        if (importedAttributeSlugs.length) {
+          await tx.category_attributes.deleteMany({
+            where: {
+              category_id: categoryId,
+              slug: {
+                notIn: importedAttributeSlugs,
+              },
+            },
+          });
+        } else {
+          await tx.category_attributes.deleteMany({
+            where: {
+              category_id: categoryId,
+            },
+          });
+        }
+      }
     });
 
     deleteTaxonomyDraft(input.draftId);
 
+    revalidatePath("/ogloszenia/dodaj");
+    revalidatePath("/dashboard/user/create-ad");
+
     return NextResponse.json(
       {
         message: "Taxonomy import committed successfully.",
+        summary: {
+          categoriesCount: draft.categories.length,
+          tagsCount: draft.tagsCount,
+          attributesCount: draft.attributesCount,
+          attributeOptionsCount: draft.attributeOptionsCount,
+          removedCategoriesCount,
+          removedTagsCount,
+        },
       },
       { status: 200 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to commit taxonomy import.";
-    return NextResponse.json({ message }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      const message = error.issues[0]?.message ?? "Invalid request payload.";
+      return NextResponse.json({ message }, { status: 400 });
+    }
+
+    console.error("Failed to commit taxonomy import", error);
+    return NextResponse.json({ message: "Unable to commit taxonomy import." }, { status: 500 });
   }
 }

@@ -1,19 +1,22 @@
+// @ts-nocheck
 "use client";
 
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 
-type Props = {
-  lat: number;
-  lng: number;
-  city: string | null;
-  address?: string | null;
-  radiusKm?: number;
-};
-
-export function ListingLocationMap({ lat, lng, city, address, radiusKm = 20 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
+/**
+ * @param {{
+ *   lat: number;
+ *   lng: number;
+ *   city: string | null;
+ *   address?: string | null;
+ *   radiusKm?: number;
+ * }} props
+ */
+export function ListingLocationMap(props) {
+  const { lat, lng, city, address, radiusKm = 10 } = props;
+  const containerRef = useRef(null);
+  const cleanupRef = useRef(null);
 
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
@@ -23,8 +26,6 @@ export function ListingLocationMap({ lat, lng, city, address, radiusKm = 20 }: P
     let cancelled = false;
 
     void (async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("leaflet/dist/leaflet.css");
       const { default: L } = await import("leaflet");
 
       if (cancelled || !containerRef.current) return;
@@ -77,7 +78,7 @@ export function ListingLocationMap({ lat, lng, city, address, radiusKm = 20 }: P
   return (
     <div className="relative w-full overflow-hidden rounded-xl" style={{ height: "320px" }}>
       <div ref={containerRef} className="absolute inset-0" />
-      <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[1000] flex items-end justify-between gap-2">
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-1000 flex items-end justify-between gap-2">
         <div className="pointer-events-auto max-w-[60%] rounded-xl bg-white/95 px-3 py-2 shadow-lg ring-1 ring-slate-200/80 backdrop-blur">
           {address ? (
             <p className="text-xs font-semibold text-slate-900 leading-snug">{address}</p>

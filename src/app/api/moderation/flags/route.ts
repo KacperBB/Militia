@@ -6,11 +6,16 @@ import { db } from "@/lib/db";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { badRequest, unauthorized } from "@/lib/security/responses";
 
+const uuidLikeSchema = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  "Invalid identifier format.",
+);
+
 const createFlagSchema = z.object({
   targetType: z.enum(["USER", "POST"]),
-  targetId: z.string().uuid(),
-  categoryId: z.string().uuid().optional(),
-  subcategoryId: z.string().uuid().optional(),
+  targetId: uuidLikeSchema,
+  categoryId: uuidLikeSchema.optional(),
+  subcategoryId: uuidLikeSchema.optional(),
   reason: z.string().trim().min(2).max(100),
   details: z.string().trim().max(1500).optional(),
 });
@@ -39,7 +44,15 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const input = createFlagSchema.parse(body);
+  const parsedInput = createFlagSchema.safeParse(body);
+
+  if (!parsedInput.success) {
+    const firstIssue = parsedInput.error.issues[0];
+    const message = firstIssue?.message || "Invalid report payload.";
+    return NextResponse.json({ message }, { status: 400 });
+  }
+
+  const input = parsedInput.data;
 
   const created = await db.moderation_flags.create({
     data: {

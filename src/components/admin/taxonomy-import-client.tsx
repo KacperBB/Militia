@@ -19,10 +19,27 @@ type TaxonomyPreviewTag = {
   name: string;
 };
 
+type TaxonomyPreviewAttributeOption = {
+  value: string;
+  label: string;
+  sortOrder: number;
+};
+
+type TaxonomyPreviewAttribute = {
+  slug: string;
+  name: string;
+  type: "text" | "number" | "boolean" | "date" | "select" | "multiselect";
+  isRequired: boolean;
+  sortOrder: number;
+  options: TaxonomyPreviewAttributeOption[];
+  metadata: Record<string, string>;
+};
+
 type TaxonomyPreviewNode = {
   slug: string;
   name: string;
   tags: TaxonomyPreviewTag[];
+  attributes: TaxonomyPreviewAttribute[];
   children: TaxonomyPreviewNode[];
 };
 
@@ -31,6 +48,8 @@ type TaxonomyPreviewResponse = {
   summary: {
     categoriesCount: number;
     tagsCount: number;
+    attributesCount: number;
+    attributeOptionsCount: number;
   };
   tree: TaxonomyPreviewNode[];
   message?: string;
@@ -101,6 +120,27 @@ function TreeNode({ node }: { node: TaxonomyPreviewNode }) {
             >
               #{tag.name}
             </span>
+          ))}
+        </div>
+      ) : null}
+
+      {node.attributes.length > 0 ? (
+        <div className="mt-2 space-y-2">
+          {node.attributes.map((attribute) => (
+            <div
+              key={`${node.slug}:${attribute.slug}`}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+            >
+              <p className="text-xs font-semibold text-slate-800">
+                {attribute.name} ({attribute.type})
+                {attribute.isRequired ? " *" : ""}
+              </p>
+              {attribute.options.length > 0 ? (
+                <p className="mt-0.5 text-[11px] text-slate-600">
+                  {attribute.options.map((option) => option.label).join(" | ")}
+                </p>
+              ) : null}
+            </div>
           ))}
         </div>
       ) : null}
@@ -193,7 +233,10 @@ export function TaxonomyImportClient() {
       open: true,
       status: "loading",
       title: tr("Import kategorii w toku", "Category import in progress"),
-      message: tr("Trwa zapisywanie kategorii i tagow do bazy.", "Saving categories and tags to the database."),
+        message: tr(
+          "Trwa zapisywanie kategorii, tagow i atrybutow do bazy.",
+          "Saving categories, tags and attributes to the database.",
+        ),
       errorDetail: "",
     });
 
@@ -227,7 +270,10 @@ export function TaxonomyImportClient() {
         open: true,
         status: "success",
         title: tr("Import zakonczony", "Import completed"),
-        message: data.message ?? tr("Kategorie i tagi zostaly zapisane poprawnie.", "Categories and tags were saved successfully."),
+        message: data.message ?? tr(
+          "Kategorie, tagi i atrybuty zostaly zapisane poprawnie.",
+          "Categories, tags and attributes were saved successfully.",
+        ),
         errorDetail: "",
       });
     } catch {
@@ -304,7 +350,9 @@ export function TaxonomyImportClient() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-slate-700">
               <span className="font-semibold">{tr("Kategorie:", "Categories:")}</span> {preview.summary.categoriesCount} |{" "}
-              <span className="font-semibold">{tr("Unikalne tagi:", "Unique tags:")}</span> {preview.summary.tagsCount}
+              <span className="font-semibold">{tr("Unikalne tagi:", "Unique tags:")}</span> {preview.summary.tagsCount} |{" "}
+              <span className="font-semibold">{tr("Atrybuty:", "Attributes:")}</span> {preview.summary.attributesCount} |{" "}
+              <span className="font-semibold">{tr("Opcje atrybutow:", "Attribute options:")}</span> {preview.summary.attributeOptionsCount}
             </div>
             <button
               type="button"
