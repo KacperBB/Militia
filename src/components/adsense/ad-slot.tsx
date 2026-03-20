@@ -1,11 +1,12 @@
 "use client";
 
-import Script from "next/script";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type AdSlotProps = {
   slot: string;
   className?: string;
+  format?: "auto" | "horizontal" | "vertical" | "rectangle";
+  responsive?: boolean;
 };
 
 declare global {
@@ -14,8 +15,9 @@ declare global {
   }
 }
 
-export function AdSlot({ slot, className }: AdSlotProps) {
+export function AdSlot({ slot, className, format = "auto", responsive = true }: AdSlotProps) {
   const client = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT;
+  const insRef = useRef<HTMLModElement | null>(null);
 
   useEffect(() => {
     try {
@@ -23,33 +25,37 @@ export function AdSlot({ slot, className }: AdSlotProps) {
         return;
       }
 
+      const adElement = insRef.current;
+      if (!adElement) {
+        return;
+      }
+
+      if (adElement.getAttribute("data-adsbygoogle-status") === "done") {
+        return;
+      }
+
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch {
       // Ignore duplicate ad push errors from client-side navigations.
     }
-  }, [client, slot]);
+  }, [client, slot, format, responsive]);
 
   if (!client || !slot) {
     return null;
   }
 
   return (
-    <>
-      <Script
-        id="adsense-loader"
-        async
-        strategy="afterInteractive"
-        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`}
-        crossOrigin="anonymous"
-      />
+    <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Reklama</p>
       <ins
+        ref={insRef}
         className={`adsbygoogle block overflow-hidden rounded-xl border border-slate-200 bg-white ${className ?? ""}`}
         style={{ display: "block" }}
         data-ad-client={client}
         data-ad-slot={slot}
-        data-ad-format="auto"
-        data-full-width-responsive="true"
+        data-ad-format={format}
+        data-full-width-responsive={responsive ? "true" : "false"}
       />
-    </>
+    </div>
   );
 }

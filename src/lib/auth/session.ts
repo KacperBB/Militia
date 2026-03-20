@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { db } from "@/lib/db";
 import { AUTH_SESSION_COOKIE, SESSION_DURATION_DAYS } from "@/lib/auth/constants";
+import { buildSessionCookieOptions } from "@/lib/auth/cookie-options";
 import { generateOpaqueToken, hashOpaqueToken } from "@/lib/auth/crypto";
 
 export const USER_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
@@ -34,13 +35,7 @@ export async function createSession(input: {
 export async function setSessionCookie(sessionToken: string, expiresAt: Date) {
   const cookieStore = await cookies();
 
-  cookieStore.set(AUTH_SESSION_COOKIE, sessionToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: expiresAt,
-  });
+  cookieStore.set(AUTH_SESSION_COOKIE, sessionToken, buildSessionCookieOptions(expiresAt));
 }
 
 export async function clearSessionCookie() {

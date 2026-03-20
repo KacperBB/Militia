@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentSession } from "@/lib/auth/session";
+import {
+  companyRouteStopsSchema,
+  normalizeCompanyRouteStops,
+  serializeCompanyRouteStops,
+} from "@/lib/company-route";
 import { db } from "@/lib/db";
 import { toPublicAuthError } from "@/lib/security/auth-errors";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
@@ -38,11 +43,13 @@ const settingsSchema = z.object({
       city: optionalString,
       description: z.string().trim().max(2000).optional(),
       avatarUrl: optionalString,
+      bannerUrl: optionalString,
       marketingConsent: z.boolean().optional(),
     })
     .partial()
     .nullable()
     .optional(),
+  routeStops: companyRouteStopsSchema.optional(),
 });
 
 function normalizeString(value?: string) {
@@ -70,6 +77,25 @@ export async function GET() {
     return unauthorized("You must be logged in.");
   }
 
+  const routeStops = session.user.company_id
+    ? await db.company_route_stops.findMany({
+        where: { company_id: session.user.company_id },
+        orderBy: { sort_order: "asc" },
+        select: {
+          id: true,
+          label: true,
+          address: true,
+          city: true,
+          zip_code: true,
+          notes: true,
+          available_from: true,
+          available_to: true,
+          lat: true,
+          lng: true,
+        },
+      })
+    : [];
+
   return ok({
     user: {
       username: session.user.username,
@@ -90,9 +116,11 @@ export async function GET() {
           city: session.user.company.city,
           description: session.user.company.description,
           avatarUrl: session.user.company.avatar_url,
+          bannerUrl: session.user.company.banner_url,
           marketingConsent: session.user.company.marketing_consent,
         }
       : null,
+    routeStops: serializeCompanyRouteStops(routeStops),
   });
 }
 
@@ -114,65 +142,108 @@ export async function PATCH(request: NextRequest) {
   try {
     const payload = await request.json();
     const input = settingsSchema.parse(payload);
+    const companyId = session.user.company_id;
 
-    if (input.user) {
-      await db.users.update({
-        where: { id: session.user.id },
-        data: {
-          username: input.user.username,
-          first_name:
-            input.user.firstName !== undefined ? normalizeString(input.user.firstName) : undefined,
-          last_name:
-            input.user.lastName !== undefined ? normalizeString(input.user.lastName) : undefined,
-          phone: input.user.phone !== undefined ? normalizeString(input.user.phone) : undefined,
-          avatar_url:
-            input.user.avatarUrl !== undefined ? normalizeString(input.user.avatarUrl) : undefined,
-          marketing_consent: input.user.marketingConsent,
-        },
-      });
+    if (input.routeStops !== undefined && !companyId) {
+      return badRequest("Company route settings are not available for this account.");
     }
 
-    if (input.company !== undefined && input.company !== null) {
-      if (!session.user.company_id) {
-        return badRequest("Company settings are not available for this account.");
+    const normalizedRouteStops = input.routeStops !== undefined
+      ? normalizeCompanyRouteStops(input.routeStops)
+      : undefined;
+
+    await db.$transaction(async (tx) => {
+      if (input.user) {
+        await tx.users.update({
+          where: { id: session.user.id },
+          data: {
+            username: input.user.username,
+            first_name:
+              input.user.firstName !== undefined ? normalizeString(input.user.firstName) : undefined,
+            last_name:
+              input.user.lastName !== undefined ? normalizeString(input.user.lastName) : undefined,
+            phone: input.user.phone !== undefined ? normalizeString(input.user.phone) : undefined,
+            avatar_url:
+              input.user.avatarUrl !== undefined ? normalizeString(input.user.avatarUrl) : undefined,
+            marketing_consent: input.user.marketingConsent,
+          },
+        });
       }
 
-      await db.companies.update({
-        where: { id: session.user.company_id },
-        data: {
-          name:
-            input.company.name !== undefined
-              ? normalizeNonNullableString(input.company.name)
-              : undefined,
-          nip: input.company.nip !== undefined ? normalizeString(input.company.nip) : undefined,
-          email:
-            input.company.email !== undefined ? normalizeString(input.company.email) : undefined,
-          phone:
-            input.company.phone !== undefined ? normalizeString(input.company.phone) : undefined,
-          address:
-            input.company.address !== undefined
-              ? normalizeString(input.company.address)
-              : undefined,
-          zip_code:
-            input.company.zipCode !== undefined
-              ? normalizeString(input.company.zipCode)
-              : undefined,
-          city: input.company.city !== undefined ? normalizeString(input.company.city) : undefined,
-          description:
-            input.company.description !== undefined
-              ? normalizeString(input.company.description)
-              : undefined,
-          avatar_url:
-            input.company.avatarUrl !== undefined
-              ? normalizeString(input.company.avatarUrl)
-              : undefined,
-          marketing_consent: input.company.marketingConsent,
-        },
-      });
-    }
+      if (input.company !== undefined && input.company !== null) {
+        if (!companyId) {
+          throw new Error("Company settings are not available for this account.");
+        }
+
+        await tx.companies.update({
+          where: { id: companyId },
+          data: {
+            name:
+              input.company.name !== undefined
+                ? normalizeNonNullableString(input.company.name)
+                : undefined,
+            nip: input.company.nip !== undefined ? normalizeString(input.company.nip) : undefined,
+            email:
+              input.company.email !== undefined ? normalizeString(input.company.email) : undefined,
+            phone:
+              input.company.phone !== undefined ? normalizeString(input.company.phone) : undefined,
+            address:
+              input.company.address !== undefined
+                ? normalizeString(input.company.address)
+                : undefined,
+            zip_code:
+              input.company.zipCode !== undefined
+                ? normalizeString(input.company.zipCode)
+                : undefined,
+            city: input.company.city !== undefined ? normalizeString(input.company.city) : undefined,
+            description:
+              input.company.description !== undefined
+                ? normalizeString(input.company.description)
+                : undefined,
+            avatar_url:
+              input.company.avatarUrl !== undefined
+                ? normalizeString(input.company.avatarUrl)
+                : undefined,
+            banner_url:
+              input.company.bannerUrl !== undefined
+                ? normalizeString(input.company.bannerUrl)
+                : undefined,
+            marketing_consent: input.company.marketingConsent,
+          },
+        });
+      }
+
+      if (normalizedRouteStops !== undefined && companyId) {
+        await tx.company_route_stops.deleteMany({
+          where: { company_id: companyId },
+        });
+
+        if (normalizedRouteStops.length > 0) {
+          await tx.company_route_stops.createMany({
+            data: normalizedRouteStops.map((stop) => ({
+              company_id: companyId,
+              label: stop.label,
+              address: stop.address,
+              city: stop.city,
+              zip_code: stop.zip_code,
+              notes: stop.notes,
+              available_from: stop.available_from,
+              available_to: stop.available_to,
+              lat: stop.lat,
+              lng: stop.lng,
+              sort_order: stop.sort_order,
+            })),
+          });
+        }
+      }
+    });
 
     return ok({ message: "Settings updated successfully." });
   } catch (error) {
+    if (error instanceof Error && error.message === "Company settings are not available for this account.") {
+      return badRequest(error.message);
+    }
+
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"

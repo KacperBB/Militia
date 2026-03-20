@@ -13,8 +13,10 @@ import {
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { badRequest, unauthorized } from "@/lib/security/responses";
 
+const MAX_XML_PREVIEW_CHARS = 1_000_000;
+
 const previewSchema = z.object({
-  xml: z.string().min(10),
+  xml: z.string().min(10).max(MAX_XML_PREVIEW_CHARS),
 });
 
 export async function POST(request: NextRequest) {

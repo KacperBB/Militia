@@ -34,6 +34,21 @@ export const uploadRouter = {
         fileUrl: file.ufsUrl,
       };
     }),
+  bannerUploader: f({
+    image: {
+      maxFileSize: "8MB",
+      maxFileCount: 1,
+    },
+  })
+    .middleware(authMiddleware)
+    .onUploadComplete(async ({ metadata, file }) => {
+      return {
+        uploadedBy: metadata.userId,
+        role: metadata.role,
+        fileKey: file.key,
+        fileUrl: file.ufsUrl,
+      };
+    }),
   listingImageUploader: f({
     image: {
       maxFileSize: "8MB",

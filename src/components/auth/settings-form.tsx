@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
+import { SellerRouteEditor } from "@/components/auth/seller-route-editor";
 import { useLocale } from "@/components/providers/locale-provider";
 import { AvatarUploader } from "@/components/upload/avatar-uploader";
+import { BannerUploader } from "@/components/upload/banner-uploader";
+import { type CompanyRouteStopInput } from "@/lib/company-route";
 
 type UserSettingsInput = {
   username: string;
@@ -24,20 +27,22 @@ type CompanySettingsInput = {
   city: string;
   description: string;
   avatarUrl: string;
+  bannerUrl: string;
   marketingConsent: boolean;
 };
 
 type SettingsFormProps = {
   initialUser: UserSettingsInput;
   initialCompany: CompanySettingsInput | null;
+  initialRouteStops: CompanyRouteStopInput[];
 };
 
-export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps) {
+export function SettingsForm({ initialUser, initialCompany, initialRouteStops }: SettingsFormProps) {
   const { locale } = useLocale();
   const tr = (pl: string, en: string) => (locale === "en" ? en : pl);
   const [user, setUser] = useState<UserSettingsInput>(initialUser);
   const [company, setCompany] = useState<CompanySettingsInput | null>(initialCompany);
-  const [activeSection, setActiveSection] = useState<"user" | "company">("user");
+  const [routeStops, setRouteStops] = useState<CompanyRouteStopInput[]>(initialRouteStops);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps)
       const payload = {
         user,
         ...(company ? { company } : {}),
+        ...(company ? { routeStops } : {}),
       };
 
       const response = await fetch("/api/auth/settings", {
@@ -78,39 +84,11 @@ export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps)
 
   return (
     <form className="grid gap-8" onSubmit={handleSubmit}>
-      {company ? (
-        <div className="grid gap-3">
-          <div className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-600">{tr("Tryb edycji", "Edit mode")}</div>
-          <div className="inline-flex w-full max-w-md rounded-2xl border border-slate-200 bg-white p-1">
-            <button
-              className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                activeSection === "user"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-700 hover:bg-slate-100"
-              }`}
-              onClick={() => setActiveSection("user")}
-              type="button"
-            >
-              {tr("Konto uzytkownika", "User account")}
-            </button>
-            <button
-              className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                activeSection === "company"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-700 hover:bg-slate-100"
-              }`}
-              onClick={() => setActiveSection("company")}
-              type="button"
-            >
-              {tr("Konto firmowe", "Company account")}
-            </button>
-          </div>
+      <section id="section-user" className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">1</div>
+          <h3 className="text-base font-semibold text-slate-900">{tr("Konto osobiste", "Personal account")}</h3>
         </div>
-      ) : null}
-
-      {activeSection === "user" ? (
-        <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
-        <h3 className="text-base font-semibold text-slate-900">{tr("Konto uzytkownika", "User account")}</h3>
         <p className="mt-1 text-sm text-slate-500">{tr("Dane prywatne i profil publiczny.", "Private data and public profile.")}</p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -170,13 +148,15 @@ export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps)
           />
           <span>{tr("Zgadzam sie na komunikacje marketingowa.", "I agree to receive marketing communication.")}</span>
         </label>
-        </section>
-      ) : null}
+      </section>
 
-      {company && activeSection === "company" ? (
-        <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
-          <h3 className="text-base font-semibold text-slate-900">{tr("Konto firmowe", "Company account")}</h3>
-          <p className="mt-1 text-sm text-slate-500">{tr("Dane firmy, branding i opis dzialalnosci.", "Company data, branding and activity description.")}</p>
+      {company ? (
+      <section id="section-seller" className="rounded-3xl border border-amber-200 bg-amber-50/40 p-5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-300 text-xs font-bold text-amber-900">2</div>
+            <h3 className="text-base font-semibold text-slate-900">{tr("Konto sprzedawcy", "Seller account")}</h3>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">{tr("Dane firmy, branding, baner i opis dzialalnosci.", "Company data, branding, banner and activity description.")}</p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-sm text-slate-700">
@@ -261,6 +241,13 @@ export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps)
                 setCompany((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
               }}
             />
+            <BannerUploader
+              currentUrl={company.bannerUrl || undefined}
+              label={tr("Baner sprzedawcy", "Seller banner")}
+              onUploaded={(url) => {
+                setCompany((prev) => (prev ? { ...prev, bannerUrl: url } : prev));
+              }}
+            />
           </div>
 
           <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
@@ -272,8 +259,10 @@ export function SettingsForm({ initialUser, initialCompany }: SettingsFormProps)
             />
             <span>{tr("Zgoda marketingowa firmy.", "Company marketing consent.")}</span>
           </label>
-        </section>
+      </section>
       ) : null}
+
+      {company ? <SellerRouteEditor locale={locale} onChange={setRouteStops} value={routeStops} /> : null}
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}

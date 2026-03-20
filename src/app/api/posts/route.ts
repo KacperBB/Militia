@@ -3,24 +3,28 @@ import { z } from "zod";
 
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { geocodePolishCity } from "@/lib/location/geocode";
+import { MAX_PRICE_CENTS } from "@/lib/posts/price";
+import { isAllowedImageUrl, ALLOWED_IMAGE_HOSTS_LABEL } from "@/lib/posts/image-allowlist";
+import { canCreateListing } from "@/lib/posts/policies";
+import { sanitizeSingleLine, sanitizeMultiline } from "@/lib/posts/sanitize";
+import { POST_STATUSES, applyPostLifecycle } from "@/lib/posts/status";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { badRequest, unauthorized } from "@/lib/security/responses";
+import { hasEnoughPhoneDigits } from "@/lib/auth/validators";
 
-const CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
-
-function sanitizeSingleLine(value: string) {
-  return value.replace(CONTROL_CHARS_RE, "").replace(/\s+/g, " ").trim();
-}
-
-function sanitizeMultiline(value: string) {
-  return value.replace(CONTROL_CHARS_RE, "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function isHttpUrl(value: string) {
+function isGoogleMapsUrl(url: string): boolean {
   try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== "https:") return false;
+    return (
+      hostname === "maps.google.com" ||
+      hostname === "www.google.com" ||
+      hostname === "www.google.pl" ||
+      hostname === "maps.app.goo.gl" ||
+      hostname === "goo.gl"
+    );
   } catch {
     return false;
   }
@@ -39,7 +43,7 @@ const createPostSchema = z.object({
   title: z.string().trim().min(5).max(120),
   description: z.string().trim().min(20).max(6000),
   categoryId: z.string().uuid(),
-  priceCents: z.number().int().nonnegative().optional(),
+  priceCents: z.number().int().nonnegative().max(MAX_PRICE_CENTS).optional(),
   isNegotiable: z.boolean().optional(),
   useCompanyProfile: z.boolean().optional(),
   autoRenew: z.boolean().optional(),
@@ -47,19 +51,29 @@ const createPostSchema = z.object({
   contactPhone: z
     .string()
     .trim()
-    .min(3)
+    .min(7)
     .max(40)
-    .regex(/^[0-9+\-\s()]{3,40}$/, "Invalid phone number format.")
+    .regex(/^[0-9+\-\s()]{7,40}$/, "Invalid phone number format.")
+    .refine(hasEnoughPhoneDigits, "Phone number must contain at least 7 digits.")
     .optional(),
   city: z.string().trim().min(2).max(120),
   googlePlaceId: z.string().trim().max(200).optional(),
-  googleMapsUrl: z.string().url().max(500).refine(isHttpUrl, "Only HTTP(S) URLs are allowed.").optional(),
+  googleMapsUrl: z
+    .string()
+    .url()
+    .max(500)
+    .refine(isGoogleMapsUrl, "Only Google Maps URLs are allowed.")
+    .optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
   images: z
     .array(
       z.object({
-        url: z.string().url().max(1000),
+        url: z
+          .string()
+          .url()
+          .max(1000)
+          .refine(isAllowedImageUrl, `Image URL must be from an allowed CDN: ${ALLOWED_IMAGE_HOSTS_LABEL}`),
         fileKey: z.string().trim().min(1).max(500),
         mimeType: z.string().trim().max(255).nullable().optional(),
         sizeBytes: z.number().int().nonnegative().nullable().optional(),
@@ -83,9 +97,11 @@ function slugify(input: string) {
 }
 
 export async function GET() {
+  await applyPostLifecycle();
+
   const posts = await db.posts.findMany({
     where: {
-      status: "PUBLISHED",
+      status: POST_STATUSES.PUBLISHED,
       deleted_at: null,
     },
     orderBy: [{ is_promoted: "desc" }, { published_at: "desc" }, { created_at: "desc" }],
@@ -172,11 +188,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (session.user.status !== "ACTIVE") {
-    return NextResponse.json({ message: "Account is not active." }, { status: 403 });
-  }
-
-  if (!session.user.email_verified_at) {
+  if (!canCreateListing(session.user)) {
     return NextResponse.json({ message: "Only verified users can create listings." }, { status: 403 });
   }
 
@@ -198,6 +210,10 @@ export async function POST(request: NextRequest) {
   const normalizedCity = sanitizeSingleLine(input.city);
   const normalizedContactName = input.contactName ? sanitizeSingleLine(input.contactName) : null;
   const normalizedContactPhone = input.contactPhone ? sanitizeSingleLine(input.contactPhone) : null;
+  const hasInputCoordinates = Number.isFinite(input.lat) && Number.isFinite(input.lng);
+  const fallbackCoordinates = hasInputCoordinates ? null : await geocodePolishCity(normalizedCity);
+  const resolvedLat = hasInputCoordinates ? input.lat : fallbackCoordinates?.lat;
+  const resolvedLng = hasInputCoordinates ? input.lng : fallbackCoordinates?.lng;
 
   const category = await db.categories.findUnique({
     where: { id: input.categoryId },
@@ -288,10 +304,11 @@ export async function POST(request: NextRequest) {
         contact_name: normalizedContactName,
         contact_phone: normalizedContactPhone,
         city: normalizedCity,
-        lat: input.lat,
-        lng: input.lng,
-        status: "PUBLISHED",
-        published_at: new Date(),
+        lat: resolvedLat,
+        lng: resolvedLng,
+        status: POST_STATUSES.DRAFT,
+        published_at: null,
+        expires_at: null,
         images: input.images?.length
           ? {
               create: input.images.map((image, index) => ({
@@ -323,7 +340,7 @@ export async function POST(request: NextRequest) {
           post_id: post.id,
           attribute_id: v.attributeId,
           value_text: v.valueText ?? null,
-          value_number: v.valueNumber !== undefined ? Math.round(v.valueNumber) : null,
+          value_number: v.valueNumber !== undefined ? v.valueNumber : null,
           value_boolean: v.valueBoolean ?? null,
           value_date: v.valueDate ? new Date(v.valueDate) : null,
           value_json: v.valueJson !== undefined ? v.valueJson : undefined,

@@ -63,8 +63,8 @@ export function AdminDashboardContent({ usernameOrEmail }: Props) {
             <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
               <h2 className="text-2xl font-bold text-slate-900">{tr("Moderacja tresci", "Content moderation")}</h2>
               <p className="mt-2 text-slate-600">{tr("Przeglad i zarzadzanie zgloszonymi tresciami", "Review and manage reported content")}</p>
-              <Link href="/dashboard/admin/moderation" className="mt-6 inline-block rounded-full bg-red-500 px-6 py-3 font-semibold text-white transition hover:bg-red-600">
-                {tr("Moderacja", "Moderation")}
+              <Link href="/dashboard/admin/posts" className="mt-6 inline-block rounded-full bg-red-500 px-6 py-3 font-semibold text-white transition hover:bg-red-600">
+                {tr("Posty i review", "Posts and review")}
               </Link>
             </div>
           </div>
@@ -74,6 +74,7 @@ export function AdminDashboardContent({ usernameOrEmail }: Props) {
               <h3 className="font-bold text-slate-900">{tr("Szybkie dostepy", "Quick links")}</h3>
               <div className="mt-4 space-y-3">
                 <Link href="/dashboard/admin/users" className="block rounded-lg bg-blue-50 p-3 text-sm transition hover:bg-blue-100">{tr("Wszyscy uzytkownicy", "All users")}</Link>
+                <Link href="/dashboard/admin/posts" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Posty i review", "Posts and review")}</Link>
                 <Link href="/dashboard/admin/site-settings" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Ustawienia witryny", "Site settings")}</Link>
                 <Link href="/dashboard/admin/moderators" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Moderatorzy", "Moderators")}</Link>
                 <Link href="/dashboard/admin/analytics" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Analityka", "Analytics")}</Link>

@@ -14,6 +14,20 @@ function applySecurityHeaders(response: NextResponse) {
   return response;
 }
 
+/**
+ * Prevent browsers and CDN proxies from caching API responses.
+ * This is especially critical for auth endpoints (/api/auth/**) where a
+ * cached 200 from a previous session could be replayed.
+ */
+function applyApiCacheHeaders(response: NextResponse, pathname: string) {
+  if (pathname.startsWith("/api/")) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Surrogate-Control", "no-store");
+  }
+  return response;
+}
+
 function shouldRateLimit(request: NextRequest) {
   return request.nextUrl.pathname.startsWith("/api/");
 }
@@ -54,17 +68,19 @@ function getRatePolicy(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
   if (
-    request.nextUrl.pathname.startsWith("/api/") &&
+    pathname.startsWith("/api/") &&
     ["POST", "PUT", "PATCH", "DELETE"].includes(request.method)
   ) {
     if (!isTrustedOrigin(request)) {
-      return applySecurityHeaders(
-        NextResponse.json(
-          { message: "Blocked by origin policy." },
-          { status: 403 },
-        ),
+      const response = NextResponse.json(
+        { message: "Blocked by origin policy." },
+        { status: 403 },
       );
+      applyApiCacheHeaders(response, pathname);
+      return applySecurityHeaders(response);
     }
   }
 
@@ -91,11 +107,13 @@ export function middleware(request: NextRequest) {
         },
       );
 
+      applyApiCacheHeaders(response, pathname);
       return applySecurityHeaders(response);
     }
   }
 
   const response = NextResponse.next();
+  applyApiCacheHeaders(response, pathname);
   return applySecurityHeaders(response);
 }
 

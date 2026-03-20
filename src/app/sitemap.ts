@@ -1,12 +1,15 @@
 import type { MetadataRoute } from "next";
 
 import { db } from "@/lib/db";
+import { POST_STATUSES, applyPostLifecycle } from "@/lib/posts/status";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").split(",")[0].replace(/\/$/, "");
 
+  await applyPostLifecycle();
+
   const posts = await db.posts.findMany({
-    where: { status: "PUBLISHED", deleted_at: null },
+    where: { status: POST_STATUSES.PUBLISHED, deleted_at: null },
     select: { id: true, updated_at: true },
     orderBy: { published_at: "desc" },
     take: 5000,

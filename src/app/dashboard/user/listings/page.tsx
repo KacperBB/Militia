@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { CancelPostButton } from "@/components/posts/cancel-post-button";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { POST_STATUSES } from "@/lib/posts/status";
 
 function formatPrice(priceCents: number | null, currency: string) {
   if (priceCents === null || priceCents === undefined) {
@@ -60,6 +62,14 @@ export default async function UserListingsPage() {
                     <Link href={`/ogloszenia/${post.id}`} className="hover:text-amber-700">{post.title}</Link>
                   </h2>
                   <p className="mt-1 text-sm text-slate-600">{formatPrice(post.price_cents, post.currency)} • {post.city || "Brak miasta"}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                      Status: {post.status}
+                    </div>
+                    <div className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                      Ważne do: {post.expires_at ? new Date(post.expires_at).toLocaleDateString("pl-PL") : "--"}
+                    </div>
+                  </div>
                 </div>
                 <div className="grid min-w-55 grid-cols-2 gap-3 text-sm">
                   <div className="rounded-xl bg-slate-50 p-3">
@@ -72,6 +82,17 @@ export default async function UserListingsPage() {
                   </div>
                 </div>
               </div>
+              {post.status !== POST_STATUSES.CANCELLED && post.status !== POST_STATUSES.EXPIRED ? (
+                <div className="mt-3 flex justify-end gap-2">
+                  <Link
+                    href={`/ogloszenia/${post.id}/edytuj`}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Edytuj ogloszenie
+                  </Link>
+                  <CancelPostButton postId={post.id} />
+                </div>
+              ) : null}
               <p className="mt-3 text-xs text-slate-500">Dodano: {new Date(post.created_at).toLocaleString("pl-PL")}</p>
             </article>
           ))

@@ -15,6 +15,7 @@ type ListingSellerSidebarProps = {
     joinedAtLabel: string;
     companyName: string | null;
     companyDescription: string | null;
+    companyBannerUrl: string | null;
     nip: string | null;
     address: string | null;
     locationLabel: string | null;
@@ -32,6 +33,7 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
   const [showPhone, setShowPhone] = useState(false);
 
   const canSeeContact = viewer.isAuthenticated;
+  const publicProfileHref = seller.type === "COMPANY" ? `/u/${seller.userId}?view=shop` : `/u/${seller.userId}`;
 
   const phoneLabel = useMemo(() => {
     if (!canSeeContact) return "Zaloguj się, aby zobaczyć numer";
@@ -50,7 +52,7 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
             {(seller.name ?? "U").slice(0, 1).toUpperCase()}
           </div>
           <div>
-            <Link href={`/u/${seller.userId}`} className="text-base font-bold text-slate-900 hover:text-amber-700">
+            <Link href={publicProfileHref} className="text-base font-bold text-slate-900 hover:text-amber-700">
               {seller.name}
             </Link>
             <p className="text-sm text-slate-500">{seller.joinedAtLabel}</p>
@@ -59,6 +61,16 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
 
         {seller.type === "COMPANY" ? (
           <div className="mt-4 space-y-3 text-sm text-slate-700">
+            {seller.companyBannerUrl ? (
+              <div className="-mx-5 -mt-4 mb-2 h-24 overflow-hidden rounded-t-2xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="Baner sprzedawcy"
+                  className="h-full w-full object-cover"
+                  src={seller.companyBannerUrl}
+                />
+              </div>
+            ) : null}
             <p className="whitespace-pre-line leading-7 text-slate-700">{seller.companyDescription}</p>
             <div className="rounded-xl bg-slate-50 p-4 whitespace-pre-line">
               <p><span className="font-semibold">Nazwa firmy:</span> {seller.companyName}</p>
@@ -84,6 +96,13 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
         ) : null}
 
         <div className="mt-4 space-y-3">
+          <Link
+            href={publicProfileHref}
+            className="block w-full rounded-lg border border-slate-300 bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            {seller.type === "COMPANY" ? "Zobacz podglad sklepu" : "Zobacz profil sprzedawcy"}
+          </Link>
+
           <button
             type="button"
             onClick={() => {
@@ -99,6 +118,7 @@ export function ListingSellerSidebar({ seller, viewer }: ListingSellerSidebarPro
             postId={seller.postId}
             initialIsFavorited={viewer.isFavorited}
             disabled={!viewer.canFavorite}
+            disabledReason={viewer.isAuthenticated ? "own-listing" : "login-required"}
           />
         </div>
       </section>

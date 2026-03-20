@@ -78,9 +78,18 @@ export async function registerUser(
   const email = normalizeEmail(input.email);
   const username = normalizeUsername(input.username);
 
-  const [emailExists, usernameExists] = await Promise.all([
+  const normalizedCompanyNip = input.accountType === "COMPANY" ? input.company?.nip?.trim() || undefined : undefined;
+  const normalizedGooglePlaceId = input.accountType === "COMPANY" ? input.company?.googlePlaceId?.trim() || undefined : undefined;
+
+  const [emailExists, usernameExists, companyByNip, companyByGooglePlaceId] = await Promise.all([
     db.users.findUnique({ where: { email } }),
     db.users.findUnique({ where: { username } }),
+    normalizedCompanyNip
+      ? db.companies.findUnique({ where: { nip: normalizedCompanyNip } })
+      : Promise.resolve(null),
+    normalizedGooglePlaceId
+      ? db.companies.findUnique({ where: { google_place_id: normalizedGooglePlaceId } })
+      : Promise.resolve(null),
   ]);
 
   if (emailExists) {
@@ -89,6 +98,14 @@ export async function registerUser(
 
   if (usernameExists) {
     throw new PublicAuthError("Username is already in use.");
+  }
+
+  if (companyByNip) {
+    throw new PublicAuthError("Company with this NIP already exists.");
+  }
+
+  if (companyByGooglePlaceId) {
+    throw new PublicAuthError("Company selected from Google already exists.");
   }
 
   const passwordHash = await hashPassword(input.password);

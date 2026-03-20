@@ -4,6 +4,11 @@ import { getClientFingerprint, getRequestIp, getRequestUserAgent } from "@/lib/a
 import { loginUser } from "@/lib/auth/service";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
 import { loginSchema } from "@/lib/auth/validators";
+import {
+  recordLoginFailure,
+  clearLoginFailures,
+  isAccountLocked,
+} from "@/lib/auth/login-lockout";
 import { toPublicAuthError } from "@/lib/security/auth-errors";
 import { assertJsonRequest, isTrustedOrigin } from "@/lib/security/http";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -31,19 +36,40 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
     const input = loginSchema.parse(payload);
-    const user = await loginUser(input);
-    const session = await createSession({
-      userId: user.id,
-      ip: getRequestIp(request),
-      userAgent: getRequestUserAgent(request),
-    });
 
-    await setSessionCookie(session.sessionToken, session.expiresAt);
+    // Account-level lockout: checked after IP rate-limit to avoid leaking
+    // account existence through different error paths.
+    const lockout = isAccountLocked(input.identifier);
+    if (lockout.locked) {
+      return NextResponse.json(
+        { message: "Account temporarily locked. Try again later." },
+        { status: 429, headers: { "Retry-After": String(lockout.retryAfterSeconds) } },
+      );
+    }
 
-    return ok({
-      message: "Logged in successfully.",
-      user,
-    });
+    try {
+      const user = await loginUser(input);
+
+      // Successful login — clear any recorded failures.
+      clearLoginFailures(input.identifier);
+
+      const session = await createSession({
+        userId: user.id,
+        ip: getRequestIp(request),
+        userAgent: getRequestUserAgent(request),
+      });
+
+      await setSessionCookie(session.sessionToken, session.expiresAt);
+
+      return ok({
+        message: "Logged in successfully.",
+        user,
+      });
+    } catch (loginError) {
+      // Record the failure for account-level lockout tracking.
+      recordLoginFailure(input.identifier);
+      throw loginError;
+    }
   } catch (error) {
     const publicError = toPublicAuthError(error);
     return NextResponse.json({ message: publicError.message }, { status: publicError.status });

@@ -54,7 +54,10 @@ export function ModeratorDashboardContent({ usernameOrEmail }: Props) {
 
             <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
               <h2 className="text-2xl font-bold text-slate-900">{tr("Kolejka moderacji", "Moderation queue")}</h2>
-              <p className="mt-4 text-center text-slate-500">{tr("Brak elementow w kolejce", "Queue is empty")}</p>
+              <p className="mt-2 text-slate-600">{tr("Przejdz do review ogloszen i zarzadzaj statusami.", "Open listings review and manage statuses.")}</p>
+              <Link href="/dashboard/moderator/listings" className="mt-4 inline-block rounded-full bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800">
+                {tr("Review ogloszen", "Review listings")}
+              </Link>
             </div>
           </div>
 
@@ -63,6 +66,7 @@ export function ModeratorDashboardContent({ usernameOrEmail }: Props) {
               <h3 className="font-bold text-slate-900">{tr("Narzedzia moderacji", "Moderation tools")}</h3>
               <div className="mt-4 space-y-3">
                 <Link href="/dashboard/moderator/flagged" className="block rounded-lg bg-red-50 p-3 text-sm transition hover:bg-red-100">{tr("Zgloszenia", "Reports")}</Link>
+                <Link href="/dashboard/moderator/listings" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Review ogloszen", "Review listings")}</Link>
                 <Link href="/dashboard/moderator/users" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Zarzadzaj uzytkownikami", "Manage users")}</Link>
                 <Link href="/dashboard/moderator/logs" className="block rounded-lg bg-slate-50 p-3 text-sm transition hover:bg-slate-100">{tr("Logi akcji", "Action logs")}</Link>
               </div>

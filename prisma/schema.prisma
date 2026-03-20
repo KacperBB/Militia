@@ -50,6 +50,7 @@ model companies {
   lng                Decimal?  @db.Decimal(10, 7)
   description        String?
   avatar_url         String?
+  banner_url         String?
   google_place_id    String?   @unique
   google_maps_url    String?
   accepted_terms     Boolean   @default(false)
@@ -61,8 +62,32 @@ model companies {
   creator            users     @relation("CompanyCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
   members            users[]   @relation("CompanyMembers")
   posts              posts[]   @relation("PostCompany")
+  route_stops        company_route_stops[]
 
   @@index([city])
+  @@index([lat, lng])
+}
+
+model company_route_stops {
+  id          String    @id @default(uuid()) @db.Uuid
+  company_id  String    @db.Uuid
+  label       String
+  address     String?
+  city        String?
+  zip_code    String?
+  notes       String?
+  available_from DateTime? @db.Timestamptz(6)
+  available_to   DateTime? @db.Timestamptz(6)
+  lat         Decimal   @db.Decimal(10, 7)
+  lng         Decimal   @db.Decimal(10, 7)
+  sort_order  Int
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(6)
+
+  company     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, sort_order])
+  @@index([company_id, sort_order])
   @@index([lat, lng])
 }
 
@@ -169,7 +194,7 @@ model post_attribute_values {
   post_id         String       @db.Uuid
   attribute_id    String       @db.Uuid
   value_text      String?
-  value_number    Int?
+  value_number    Decimal?     @db.Decimal(18, 4)
   value_boolean   Boolean?
   value_date      DateTime?
   value_json      Json?        // For multiselect arrays or complex data
@@ -213,7 +238,7 @@ model posts {
   contact_name     String?
   contact_phone    String?
   auto_renew       Boolean      @default(false)
-  status           String       @default("PENDING_REVIEW")
+  status           String       @default("DRAFT")
   published_at     DateTime?    @db.Timestamptz(6)
   expires_at       DateTime?    @db.Timestamptz(6)
   city             String?

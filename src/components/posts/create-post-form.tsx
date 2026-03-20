@@ -4,8 +4,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Fuse from "fuse.js";
 
+import type { EditPostInitialData } from "@/lib/posts/edit-post-page-data";
+import { MAX_PRICE, MAX_PRICE_CENTS, formatMaxPriceLabel } from "@/lib/posts/price";
 import { useLocale } from "@/components/providers/locale-provider";
 import { ListingImagesUploader, type UploadedListingImage } from "@/components/posts/listing-images-uploader";
+import { useCreatePostFormStore } from "@/stores/create-post-form-store";
 
 type CategoryOption = {
   id: string;
@@ -62,47 +65,69 @@ type CreatePostFormProps = {
   categories: CategoryOption[];
   isEmailVerified: boolean;
   currentUser: CurrentUserData;
+  initialData?: EditPostInitialData;
+  successRedirectPath?: string;
 };
 
 type Step = 1 | 2 | 3;
 
 const UUID_LIKE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function CreatePostForm({ categories, isEmailVerified, currentUser }: CreatePostFormProps) {
+export function CreatePostForm({ categories, isEmailVerified, currentUser, initialData, successRedirectPath = "/dashboard/user/listings" }: CreatePostFormProps) {
   const router = useRouter();
   const { locale } = useLocale();
   const tr = (pl: string, en: string) => (locale === "en" ? en : pl);
+  const isEditing = Boolean(initialData);
+  const initialAttributeValuesRef = useRef(initialData?.attributeValues ?? null);
 
   const categoryInputRef = useRef<HTMLDivElement>(null);
+  const {
+    categoryId,
+    categorySearchQuery,
+    categorySelectionSource,
+    categoryRequiredError,
+    initializeCategory,
+    setCategorySearchQuery,
+    selectCategory,
+    clearCategorySelection,
+    setCategoryRequiredError,
+    reset: resetCreatePostFormStore,
+  } = useCreatePostFormStore();
 
   const [step, setStep] = useState<Step>(1);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [description, setDescription] = useState(initialData?.description ?? "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [categoryRequiredError, setCategoryRequiredError] = useState(false);
-  const [categorySelectionSource, setCategorySelectionSource] = useState<"auto" | "manual" | "none">("none");
 
-  const [images, setImages] = useState<UploadedListingImage[]>([]);
-  const [price, setPrice] = useState("");
-  const [isNegotiable, setIsNegotiable] = useState(false);
+  const [images, setImages] = useState<UploadedListingImage[]>(initialData?.images ?? []);
+  const [price, setPrice] = useState(initialData?.price ?? "");
+  const [isNegotiable, setIsNegotiable] = useState(initialData?.isNegotiable ?? false);
   const [listingProfileType, setListingProfileType] = useState<"PRIVATE" | "COMPANY">(
-    currentUser.hasCompany ? "COMPANY" : "PRIVATE",
+    initialData?.listingProfileType ?? (currentUser.hasCompany ? "COMPANY" : "PRIVATE"),
   );
 
   const [categoryAttributes, setCategoryAttributes] = useState<CategoryAttribute[]>([]);
   const [loadingAttributes, setLoadingAttributes] = useState(false);
   const [attributeValues, setAttributeValues] = useState<Record<string, AttributeValue>>({});
 
-  const [autoRenew, setAutoRenew] = useState(false);
-  const [city, setCity] = useState("");
+  const [autoRenew, setAutoRenew] = useState(initialData?.autoRenew ?? false);
+  const [city, setCity] = useState(initialData?.city ?? "");
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlacesResult[]>([]);
-  const [selectedPlace, setSelectedPlace] = useState<PlacesResult | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<PlacesResult | null>(
+    initialData
+      ? {
+          id: initialData.googlePlaceId ?? initialData.id,
+          name: initialData.city,
+          googleMapsUrl: initialData.googleMapsUrl ?? undefined,
+          lat: initialData.lat ?? undefined,
+          lng: initialData.lng ?? undefined,
+        }
+      : null,
+  );
   const [loadingPlaces, setLoadingPlaces] = useState(false);
-  const [contactName, setContactName] = useState(`${currentUser.firstName} ${currentUser.lastName}`.trim());
-  const [contactPhone, setContactPhone] = useState(currentUser.phone);
+  const [contactName, setContactName] = useState(initialData?.contactName ?? `${currentUser.firstName} ${currentUser.lastName}`.trim());
+  const [contactPhone, setContactPhone] = useState(initialData?.contactPhone ?? currentUser.phone);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +136,18 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
 
   const hasCategories = categories.length > 0;
   const hasValidCategoryId = UUID_LIKE_RE.test(categoryId);
+  const maxPriceLabel = useMemo(() => formatMaxPriceLabel(locale === "en" ? "en-US" : "pl-PL"), [locale]);
+
+  useEffect(() => {
+    initializeCategory({
+      categoryId: initialData?.categoryId ?? "",
+      categorySelectionSource: initialData?.categoryId ? "manual" : "none",
+    });
+
+    return () => {
+      resetCreatePostFormStore();
+    };
+  }, [initialData?.categoryId, initializeCategory, resetCreatePostFormStore]);
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryOption>();
@@ -221,10 +258,9 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
       return;
     }
 
-    setCategoryId(bestRecommendedCategory.id);
-    setCategorySelectionSource("auto");
+    selectCategory(bestRecommendedCategory.id, "auto");
     setCategoryRequiredError(false);
-  }, [bestRecommendedCategory, categorySelectionSource, title]);
+  }, [bestRecommendedCategory, categorySelectionSource, selectCategory, setCategoryRequiredError, title]);
 
   useEffect(() => {
     if (!categoryId || !UUID_LIKE_RE.test(categoryId)) {
@@ -248,6 +284,10 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
       .then((data) => {
         if (cancelled) return;
         setCategoryAttributes(data.attributes ?? []);
+        if (initialAttributeValuesRef.current && initialData?.categoryId === categoryId) {
+          setAttributeValues(initialAttributeValuesRef.current);
+          initialAttributeValuesRef.current = null;
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -263,7 +303,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
     return () => {
       cancelled = true;
     };
-  }, [categoryId]);
+  }, [categoryId, initialData?.categoryId]);
 
   function setAttributeValue(update: AttributeValue) {
     setAttributeValues((prev) => ({ ...prev, [update.attributeId]: update }));
@@ -333,8 +373,12 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
       return tr("Cena musi byc liczba wieksza lub rowna 0.", "Price must be a number greater than or equal to 0.");
     }
 
+    if (normalizedPrice !== undefined && normalizedPrice > MAX_PRICE) {
+      return tr(`Cena nie moze byc wyzsza niz ${maxPriceLabel} PLN.`, `Price cannot exceed ${maxPriceLabel} PLN.`);
+    }
+
     return null;
-  }, [categoryId, description, hasCategories, hasValidCategoryId, isEmailVerified, normalizedPrice, title, tr]);
+  }, [categoryId, description, hasCategories, hasValidCategoryId, isEmailVerified, maxPriceLabel, normalizedPrice, title, tr]);
 
   const step2Error = useMemo(() => {
     if (loadingAttributes) {
@@ -392,7 +436,9 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
   }
 
   async function searchPlaces() {
-    if (!placeQuery.trim()) {
+    const resolvedQuery = placeQuery.trim() || city.trim();
+
+    if (!resolvedQuery) {
       setPlaceResults([]);
       return;
     }
@@ -400,7 +446,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
     setLoadingPlaces(true);
 
     try {
-      const params = new URLSearchParams({ query: placeQuery.trim(), city: city.trim() });
+      const params = new URLSearchParams({ query: resolvedQuery, city: city.trim() });
       const response = await fetch(`/api/business/google-lookup?${params.toString()}`, { cache: "no-store" });
       const data = (await response.json()) as { results?: PlacesResult[] };
       setPlaceResults(data.results ?? []);
@@ -439,8 +485,12 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
     try {
       const priceCents = normalizedPrice !== undefined ? Math.round(normalizedPrice * 100) : undefined;
 
-      const response = await fetch("/api/posts", {
-        method: "POST",
+      if (priceCents !== undefined && (!Number.isSafeInteger(priceCents) || priceCents > MAX_PRICE_CENTS)) {
+        throw new Error(tr(`Cena nie moze byc wyzsza niz ${maxPriceLabel} PLN.`, `Price cannot exceed ${maxPriceLabel} PLN.`));
+      }
+
+      const response = await fetch(isEditing ? `/api/posts/${initialData?.id}` : "/api/posts", {
+        method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -479,8 +529,21 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
         throw new Error(data?.message || tr("Nie udalo sie utworzyc ogloszenia.", "Failed to create listing."));
       }
 
-      setSuccess(tr("Ogloszenie zostalo utworzone.", "Listing has been created."));
-      router.push(`/ogloszenia/${data.post.id}`);
+      const targetPath = !isEditing && data?.post?.id
+        ? `/ogloszenia/${data.post.id}/utworzono`
+        : successRedirectPath;
+
+      setSuccess(
+        tr(
+          isEditing
+            ? "Ogloszenie zostalo zaktualizowane."
+            : "Ogloszenie zostalo zapisane jako draft. Moderator lub administrator moze teraz rozpoczac review.",
+          isEditing
+            ? "Listing has been updated."
+            : "Listing has been saved as draft. A moderator or administrator can now start the review.",
+        ),
+      );
+      router.push(targetPath);
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : tr("Blad zapisu ogloszenia.", "Listing save error."));
@@ -492,7 +555,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
   return (
     <form onSubmit={onSubmit} className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 md:p-6">
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold text-slate-900">{tr("Nowe ogloszenie", "Create listing")}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{tr(isEditing ? "Edycja ogloszenia" : "Nowe ogloszenie", isEditing ? "Edit listing" : "Create listing")}</h1>
         <div className="grid gap-2 sm:grid-cols-3">
           {[1, 2, 3].map((index) => {
             const active = step === index;
@@ -547,19 +610,25 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
               <input
                 value={categorySearchQuery}
                 onChange={(event) => {
-                  setCategorySearchQuery(event.target.value);
+                  const nextQuery = event.target.value;
+                  setCategorySearchQuery(nextQuery);
+                  if (categoryId && nextQuery.trim() !== "") {
+                    clearCategorySelection();
+                  } else {
+                    setCategoryRequiredError(false);
+                  }
                   setShowCategoryDropdown(true);
-                  setCategoryRequiredError(false);
+                }}
+                onBlur={() => {
+                  if (!categoryId && categorySearchQuery.trim()) {
+                    setCategoryRequiredError(true);
+                  }
                 }}
                 onFocus={() => setShowCategoryDropdown(true)}
                 className={`w-full rounded-md border px-3 py-2 text-sm ${
                   categoryRequiredError ? "border-rose-500 bg-rose-50" : "border-slate-300"
                 }`}
-                placeholder={
-                  categoryId
-                    ? categoryDisplay
-                    : tr("Szukaj lub wpisz kategorie", "Search or type category")
-                }
+                placeholder={tr("Szukaj i wybierz kategorie z listy", "Search and choose a category from the list")}
                 required
               />
               {showCategoryDropdown && filteredCategories.length > 0 ? (
@@ -574,10 +643,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setCategoryId(category.id);
-                          setCategorySelectionSource("manual");
-                          setCategorySearchQuery("");
-                          setCategoryRequiredError(false);
+                          selectCategory(category.id, "manual");
                           setShowCategoryDropdown(false);
                         }}
                         className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
@@ -591,7 +657,33 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
             </div>
 
             {categoryRequiredError ? (
-              <p className="text-xs font-semibold text-rose-600">{tr("Prosze wybrac kategorie.", "Please choose a category.")}</p>
+              <p className="text-xs font-semibold text-rose-600">
+                {tr("Musisz wybrac kategorie z listy. Sam wpisany tekst nie wystarczy.", "You must choose a category from the list. Typed text alone is not enough.")}
+              </p>
+            ) : null}
+
+            {selectedCategoryObj ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                      {tr("Wybrana kategoria", "Selected category")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-950">{categoryDisplay}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategorySearchQuery("");
+                      clearCategorySelection();
+                      setShowCategoryDropdown(true);
+                    }}
+                    className="rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                  >
+                    {tr("Zmien kategorie", "Change category")}
+                  </button>
+                </div>
+              </div>
             ) : null}
 
             {title.trim().length >= 12 && categorySelectionSource === "auto" && categoryDisplay ? (
@@ -612,10 +704,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                         key={category.id}
                         type="button"
                         onClick={() => {
-                          setCategoryId(category.id);
-                          setCategorySelectionSource("manual");
-                          setCategorySearchQuery("");
-                          setCategoryRequiredError(false);
+                          selectCategory(category.id, "manual");
                           setShowCategoryDropdown(false);
                         }}
                         className="block w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm font-semibold text-amber-900 hover:border-amber-300 hover:bg-amber-100"
@@ -637,9 +726,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                 <button
                   type="button"
                   onClick={() => {
-                    setCategoryId(didYouMeanCategory.id);
-                    setCategorySelectionSource("manual");
-                    setCategoryRequiredError(false);
+                    selectCategory(didYouMeanCategory.id, "manual");
                   }}
                   className="rounded-md bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
                 >
@@ -678,8 +765,10 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                 inputMode="decimal"
                 type="number"
                 min="0"
+                max={String(MAX_PRICE)}
                 step="0.01"
               />
+              <p className="text-xs text-slate-500">{tr(`Maksymalna cena: ${maxPriceLabel} PLN.`, `Maximum price: ${maxPriceLabel} PLN.`)}</p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">{tr("Cena", "Price")}</label>
@@ -934,7 +1023,10 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
             <p className="text-sm font-semibold text-slate-800">{tr("Lokalizacja", "Location")}</p>
             <input
               value={city}
-              onChange={(event) => setCity(event.target.value)}
+              onChange={(event) => {
+                setCity(event.target.value);
+                setSelectedPlace(null);
+              }}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               placeholder={tr("Np. Warszawa", "Example: Warsaw")}
               required
@@ -944,7 +1036,7 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                 value={placeQuery}
                 onChange={(event) => setPlaceQuery(event.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                placeholder={tr("Wpisz nazwe miejsca lub firmy", "Search place or business")}
+                placeholder={tr("Wpisz nazwe miejsca lub firmy (albo zostaw puste i wyszukaj po miescie)", "Search place or business (or leave empty to search by city)")}
               />
               <button
                 type="button"
@@ -976,6 +1068,13 @@ export function CreatePostForm({ categories, isEmailVerified, currentUser }: Cre
                 ))}
               </ul>
             ) : null}
+
+            <p className="text-xs text-slate-500">
+              {tr(
+                "Jesli nie wybierzesz miejsca z listy, system i tak sprobuje automatycznie geokodowac wpisane miasto podczas zapisu.",
+                "If you do not choose a place from the list, the system will still try to geocode the entered city automatically on save.",
+              )}
+            </p>
           </div>
 
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">

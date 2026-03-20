@@ -22,41 +22,97 @@ type SettingsPageContentProps = {
     city: string;
     description: string;
     avatarUrl: string;
+    bannerUrl: string;
     marketingConsent: boolean;
   } | null;
+  initialRouteStops: Array<{
+    id?: string;
+    label: string;
+    address: string;
+    city: string;
+    zipCode: string;
+    notes: string;
+    availableFrom?: string;
+    availableTo?: string;
+    lat: number;
+    lng: number;
+  }>;
 };
 
-export function SettingsPageContent({ initialUser, initialCompany }: SettingsPageContentProps) {
+export function SettingsPageContent({ initialUser, initialCompany, initialRouteStops }: SettingsPageContentProps) {
   const { locale } = useLocale();
   const tr = (pl: string, en: string) => (locale === "en" ? en : pl);
+  const hasSellerProfile = initialCompany !== null;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.14),transparent_35%),linear-gradient(180deg,#fffdf7_0%,#f8fafc_100%)] px-6 py-10 text-slate-950">
-      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-4xl bg-slate-950 px-8 py-10 text-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-          <div className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200">{tr("Ustawienia", "Settings")}</div>
-          <h1 className="mt-6 max-w-md text-4xl font-semibold leading-tight">{tr("Edytuj dane konta prywatnego i firmowego.", "Edit personal and company account details.")}</h1>
-          <p className="mt-6 max-w-lg text-sm leading-7 text-slate-300">
-            {tr(
-              "Tutaj ustawiasz zdjecie profilowe, dane kontaktowe i opis dzialalnosci. Upload obrazow jest obslugiwany przez UploadThing.",
-              "Configure profile image, contact data, and business description here. Image uploads are handled by UploadThing.",
-            )}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.14),transparent_35%),linear-gradient(180deg,#fffdf7_0%,#f8fafc_100%)] px-4 py-10 text-slate-950 md:px-6">
+      <div className="mx-auto max-w-5xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-amber-700">
+            {tr("Ustawienia", "Settings")}
+          </div>
+          <div className="mt-3">
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                hasSellerProfile
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {hasSellerProfile
+                ? tr("Konto sprzedawcy: aktywne", "Seller account: active")
+                : tr("Konto sprzedawcy: nieaktywne", "Seller account: inactive")}
+            </span>
+          </div>
+          <h1 className="mt-3 text-3xl font-bold text-slate-950">
+            {hasSellerProfile
+              ? tr("Ustawienia konta prywatnego i sprzedawcy", "Personal & seller account settings")
+              : tr("Ustawienia konta", "Account settings")}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            {hasSellerProfile
+              ? tr(
+                  "Zarządzaj danymi osobowymi, profilem sprzedawcy, avatarem, banerem i opisem firmy.",
+                  "Manage personal data, seller profile, avatar, banner and company description.",
+                )
+              : tr(
+                  "Zarządzaj danymi osobowymi i profilem publicznym.",
+                  "Manage your personal data and public profile.",
+                )}
           </p>
-          <div className="mt-10 grid gap-4 text-sm text-slate-300">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">{tr("Konto prywatne i konto firmowe maja osobne avatar URL.", "Personal and company accounts use separate avatar URLs.")}</div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">{tr("Opis firmy i branding nie sa juz ustawiane w rejestracji.", "Company description and branding are now managed in settings.")}</div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">{tr("To pierwszy zakres ustawien. Panel admin/moderator dodamy jako kolejny krok.", "This is the first settings scope. Admin/moderator settings will be added next.")}</div>
-          </div>
-        </section>
+        </div>
 
-        <section className="rounded-4xl border border-white/70 bg-white/90 p-8 shadow-[0_24px_80px_rgba(148,163,184,0.22)] backdrop-blur">
-          <div className="mb-6">
-            <div className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-600">{tr("Profil", "Profile")}</div>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-950">{tr("Opcje konta", "Account options")}</h2>
-          </div>
+        <div className="mb-6 flex flex-wrap gap-2">
+          <a
+            href="#section-user"
+            className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {tr("Konto osobiste", "Personal account")}
+          </a>
+          {hasSellerProfile ? (
+            <a
+              href="#section-seller"
+              className="rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+            >
+              {tr("Konto sprzedawcy", "Seller account")}
+            </a>
+          ) : null}
+          {hasSellerProfile ? (
+            <a
+              href="#section-route"
+              className="rounded-full border border-sky-300 bg-sky-50 px-4 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100"
+            >
+              {tr("Trasa", "Route")}
+            </a>
+          ) : null}
+        </div>
 
-          <SettingsForm initialCompany={initialCompany} initialUser={initialUser} />
-        </section>
+        <SettingsForm
+          initialCompany={initialCompany}
+          initialRouteStops={initialRouteStops}
+          initialUser={initialUser}
+        />
       </div>
     </main>
   );

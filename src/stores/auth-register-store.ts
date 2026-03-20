@@ -6,10 +6,15 @@ type BusinessLookupItem = {
   id: string;
   name: string;
   address?: string;
+  streetAddress?: string;
+  city?: string;
+  zipCode?: string;
   phone?: string;
   googleMapsUrl?: string;
   websiteUrl?: string;
   businessStatus?: string;
+  lat?: number;
+  lng?: number;
 };
 
 type AuthRegisterState = {
@@ -89,7 +94,9 @@ export const useAuthRegisterStore = create<AuthRegisterState>((set) => ({
   applyBusinessLookupResult: (item) =>
     set({
       companyName: item.name,
-      companyAddress: item.address ?? "",
+      companyAddress: item.streetAddress ?? item.address ?? "",
+      companyCity: item.city ?? "",
+      companyZipCode: item.zipCode ?? "",
       companyPhone: item.phone ?? "",
       googlePlaceId: item.id,
       googleMapsUrl: item.googleMapsUrl ?? "",

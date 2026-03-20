@@ -5,12 +5,25 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
+const CLEANUP_THRESHOLD = 10_000;
+
+function cleanup(now: number): void {
+  for (const [key, bucket] of buckets.entries()) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  }
+}
+
 export function enforceRateLimit(input: {
   key: string;
   limit: number;
   windowMs: number;
 }) {
   const now = Date.now();
+
+  if (buckets.size > CLEANUP_THRESHOLD) {
+    cleanup(now);
+  }
+
   const existing = buckets.get(input.key);
 
   if (!existing || existing.resetAt <= now) {

@@ -11,6 +11,11 @@ interface User {
   username: string;
   email: string;
   role: string;
+  company?: {
+    id: string;
+    name: string;
+  } | null;
+  favoritesCount?: number;
 }
 
 export function Navbar() {
@@ -44,12 +49,18 @@ export function Navbar() {
       debouncedFetchSession();
     };
 
+    const onFavoritesChanged = () => {
+      debouncedFetchSession();
+    };
+
     void fetchSession();
     window.addEventListener('militia-auth-changed', onAuthChanged);
+    window.addEventListener('militia-favorites-changed', onFavoritesChanged);
 
     return () => {
       debouncedFetchSession.cancel();
       window.removeEventListener('militia-auth-changed', onAuthChanged);
+      window.removeEventListener('militia-favorites-changed', onFavoritesChanged);
     };
   }, [pathname]);
 
@@ -106,6 +117,8 @@ export function Navbar() {
     }
   };
 
+  const hasCompany = Boolean(user?.company);
+
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-6 py-4">
@@ -150,6 +163,14 @@ export function Navbar() {
                 >
                   Ogloszenia
                 </Link>
+                {user.role === 'USER' ? (
+                  <Link
+                    href="/dashboard/user/favorites"
+                    className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    Ulubione ({user.favoritesCount ?? 0})
+                  </Link>
+                ) : null}
                 {/* User Menu */}
                 <div className="relative">
                   <button
@@ -175,6 +196,15 @@ export function Navbar() {
                       >
                         📊 {t('nav.dashboard', 'Dashboard')}
                       </Link>
+                      {user.role === 'USER' ? (
+                        <Link
+                          href="/dashboard/user/favorites"
+                          className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                          onClick={() => setShowMenu(false)}
+                        >
+                          ❤️ Ulubione ({user.favoritesCount ?? 0})
+                        </Link>
+                      ) : null}
                       <Link
                         href="/ogloszenia/dodaj"
                         className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
@@ -189,6 +219,15 @@ export function Navbar() {
                       >
                         ⚙️ {t('nav.settings', 'Settings')}
                       </Link>
+                      {hasCompany ? (
+                        <Link
+                          href={`/u/${user.id}?view=shop`}
+                          className="block px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                          onClick={() => setShowMenu(false)}
+                        >
+                          🏪 Podglad sklepu
+                        </Link>
+                      ) : null}
                       {user.role === 'ADMIN' ? (
                         <Link
                           href="/dashboard/admin/site-settings"

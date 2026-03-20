@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { applyPostLifecycle } from "@/lib/posts/status";
 import { unauthorized } from "@/lib/security/responses";
 
 export async function GET() {
@@ -11,9 +12,11 @@ export async function GET() {
     return unauthorized("You must be logged in.");
   }
 
-  if (session.user.role !== "ADMIN") {
+  if (!["ADMIN", "MODERATOR"].includes(session.user.role)) {
     return NextResponse.json({ message: "Forbidden." }, { status: 403 });
   }
+
+  await applyPostLifecycle();
 
   const posts = await db.posts.findMany({
     where: {
@@ -81,8 +84,10 @@ export async function GET() {
         title: post.title,
         status: post.status,
         city: post.city,
+        isPromoted: post.is_promoted,
         createdAt: post.created_at,
         publishedAt: post.published_at,
+        expiresAt: post.expires_at,
         category: post.category,
         author: {
           id: post.author.id,

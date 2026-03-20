@@ -5,7 +5,13 @@ import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { useAuthRegisterStore } from "@/stores/auth-register-store";
+import type { BusinessLookupItem } from "@/stores/auth-register-store";
 import { checkPasswordStrength, type PasswordStrength } from "@/lib/auth/password-strength";
+import {
+  getRegisterWizardSteps,
+  validateRegisterWizardStep,
+  type RegisterWizardStep,
+} from "@/lib/auth/register-wizard";
 import { RegistrationConfirmation } from "./registration-confirmation";
 
 const COUNTRY_DIAL_CODES = [
@@ -45,6 +51,44 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
+function Switch({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-slate-900">{label}</span>
+        <span className="mt-1 block text-sm text-slate-500">{description}</span>
+      </span>
+      <span
+        className={`relative mt-0.5 inline-flex h-7 w-12 shrink-0 rounded-full transition ${
+          checked ? "bg-amber-500" : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+            checked ? "left-6" : "left-1"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 export function RegisterForm() {
   const store = useAuthRegisterStore();
   const setField = store.setField;
@@ -67,6 +111,11 @@ export function RegisterForm() {
   });
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
+  const [selectedLookupId, setSelectedLookupId] = useState<string | null>(null);
+  const [lookupResults, setLookupResults] = useState<BusinessLookupItem[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [showStepErrors, setShowStepErrors] = useState(false);
   const emailConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const t = (pl: string, en: string) => (locale === "en" ? en : pl);
@@ -87,6 +136,13 @@ export function RegisterForm() {
     setCompanyPhoneCode(userPhoneCode);
     setField("companyPhone", userPhone);
   }, [sameCompanyPhone, userPhoneCode, userPhone, setField]);
+
+  const steps = getRegisterWizardSteps(store.accountType);
+  const currentStep = steps[currentStepIndex] ?? steps[0];
+
+  useEffect(() => {
+    setCurrentStepIndex((current) => Math.min(current, steps.length - 1));
+  }, [steps.length]);
 
   // Validate email confirmation on blur or after 0.5s of inactivity
   useEffect(() => {
@@ -123,6 +179,11 @@ export function RegisterForm() {
       return;
     }
 
+    if (!store.companyCity.trim()) {
+      store.setError("Podaj miasto firmy przed wyszukaniem (dla sieci handlowych to obowiazkowe).");
+      return;
+    }
+
     store.setError(null);
     store.setLookupState({ isLookupLoading: true });
     setLookupMessage(null);
@@ -146,10 +207,20 @@ export function RegisterForm() {
         isLookupLoading: false,
       });
 
-      if (!data.enabled) {
-        setLookupMessage("Google Places API nie jest jeszcze skonfigurowane. Mozesz wpisac dane firmy recznie.");
-      } else if ((data.results ?? []).length === 0) {
-        setLookupMessage("Brak dopasowan. Zweryfikuj nazwe firmy lub uzupelnij dane recznie.");
+      const results = (data.results ?? []) as BusinessLookupItem[];
+      setLookupResults(results);
+
+      if (results.length > 0) {
+        const firstId = results[0]?.id ?? null;
+        setSelectedLookupId(firstId);
+        setIsLookupModalOpen(true);
+        setLookupMessage(data.reason ?? null);
+      } else if (!data.enabled) {
+        setLookupMessage("Nie udało się pobrać danych firmy. Możesz uzupełnić je ręcznie.");
+      } else if (results.length === 0) {
+        setLookupMessage(
+          "Brak dopasowan. Spróbuj krótszej nazwy firmy i miasta w mianowniku (np. Rzeszów), albo uzupełnij dane ręcznie.",
+        );
       }
     } catch (error) {
       store.setLookupState({ isLookupLoading: false });
@@ -185,6 +256,19 @@ export function RegisterForm() {
           ? `${companyPhoneCode} ${store.companyPhone.trim()}`
           : "";
       const normalizedCompanyEmail = sameCompanyEmail ? store.email.trim() : store.companyEmail.trim();
+      const normalizedGoogleMapsUrl = store.googleMapsUrl.trim();
+
+      const validGoogleMapsUrl = (() => {
+        if (!normalizedGoogleMapsUrl) {
+          return undefined;
+        }
+
+        try {
+          return new URL(normalizedGoogleMapsUrl).toString();
+        } catch {
+          return undefined;
+        }
+      })();
 
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -212,7 +296,7 @@ export function RegisterForm() {
                   zipCode: store.companyZipCode,
                   city: store.companyCity,
                   googlePlaceId: store.googlePlaceId,
-                  googleMapsUrl: store.googleMapsUrl,
+                  googleMapsUrl: validGoogleMapsUrl,
                   acceptedTerms: store.companyAcceptedTerms,
                   marketingConsent: store.companyMarketingConsent,
                 }
@@ -250,8 +334,86 @@ export function RegisterForm() {
     );
   }
 
+  const selectedLookup = lookupResults.find((result) => result.id === selectedLookupId) ?? null;
+  const selectedMapUrl =
+    selectedLookup?.lat && selectedLookup?.lng
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${selectedLookup.lng - 0.03}%2C${selectedLookup.lat - 0.02}%2C${selectedLookup.lng + 0.03}%2C${selectedLookup.lat + 0.02}&layer=mapnik&marker=${selectedLookup.lat}%2C${selectedLookup.lng}`
+      : null;
+
+  const wizardValidation = validateRegisterWizardStep(
+    currentStep as RegisterWizardStep,
+    {
+      accountType: store.accountType,
+      email: store.email,
+      emailConfirm,
+      username: store.username,
+      firstName: store.firstName,
+      lastName: store.lastName,
+      phone: store.phone,
+      password: store.password,
+      confirmPassword: store.confirmPassword,
+      companyName: store.companyName,
+      companyNip: store.companyNip,
+      companyEmail: store.companyEmail,
+      companyPhone: store.companyPhone,
+      companyCity: store.companyCity,
+      companyAcceptedTerms: store.companyAcceptedTerms,
+      sameCompanyEmail,
+      sameCompanyPhone,
+    },
+    passwordStrength,
+  );
+
+  const fieldErrors = showStepErrors ? wizardValidation.errors : {};
+
+  function stepTitle(step: RegisterWizardStep) {
+    switch (step) {
+      case "accountType":
+        return t("Typ konta", "Account type");
+      case "identity":
+        return t("Dane konta", "Account details");
+      case "company":
+        return t("Dane firmy", "Company details");
+      case "security":
+        return t("Bezpieczeństwo", "Security");
+    }
+  }
+
+  function handleNextStep() {
+    setShowStepErrors(true);
+    if (!wizardValidation.canContinue) {
+      return;
+    }
+    setShowStepErrors(false);
+    setCurrentStepIndex((current) => Math.min(current + 1, steps.length - 1));
+  }
+
+  function handlePreviousStep() {
+    setShowStepErrors(false);
+    setCurrentStepIndex((current) => Math.max(current - 1, 0));
+  }
+
   return (
     <form className="grid gap-6" onSubmit={handleSubmit}>
+      <div className="flex flex-wrap gap-2">
+        {steps.map((step, index) => (
+          <div
+            key={step}
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${
+              currentStep === step
+                ? "bg-slate-900 text-white"
+                : index < currentStepIndex
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            <span className="font-semibold">{index + 1}</span>
+            <span>{stepTitle(step)}</span>
+          </div>
+        ))}
+      </div>
+
+      {currentStep === "accountType" ? (
       <div className="grid gap-3 sm:grid-cols-2">
         <button
           className={`rounded-2xl border px-4 py-3 text-left transition ${
@@ -278,12 +440,15 @@ export function RegisterForm() {
           <div className="mt-1 text-xs text-slate-500">Dla firm i przedsiebiorcow z mozliwoscia weryfikacji danych.</div>
         </button>
       </div>
+      ) : null}
 
+      {currentStep === "identity" ? (
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Email">
           <Input autoComplete="email" onChange={(event) => store.setField("email", event.target.value)} required type="email" value={store.email} />
+          {fieldErrors.email ? <span className="text-xs text-rose-600">{fieldErrors.email}</span> : null}
         </Field>
-        <Field label="Potwierdź email" error={emailConfirmError}>
+        <Field label="Potwierdź email" error={fieldErrors.emailConfirm || emailConfirmError}>
           <Input
             autoComplete="off"
             onChange={(event) => setEmailConfirm(event.target.value)}
@@ -298,7 +463,7 @@ export function RegisterForm() {
             placeholder="Wpisz email ponownie"
           />
         </Field>
-        <Field label="Preferowana nazwa uzytkownika">
+        <Field label="Preferowana nazwa uzytkownika" error={fieldErrors.username}>
           <Input autoComplete="username" onChange={(event) => store.setField("username", event.target.value)} required value={store.username} />
         </Field>
         <Field label="Imie">
@@ -307,7 +472,7 @@ export function RegisterForm() {
         <Field label="Nazwisko">
           <Input onChange={(event) => store.setField("lastName", event.target.value)} value={store.lastName} />
         </Field>
-        <Field label="Telefon">
+        <Field label="Telefon" error={fieldErrors.phone}>
           <div className="flex gap-2">
             <select
               className="h-12 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
@@ -328,17 +493,18 @@ export function RegisterForm() {
           </div>
         </Field>
       </div>
+      ) : null}
 
-      {/* Password Section */}
+      {currentStep === "security" ? (
       <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
         <h3 className="text-base font-semibold text-slate-900">Siła hasła</h3>
         <p className="mt-1 text-sm text-slate-500">Hasło musi być silne dla bezpieczeństwa Twojego konta</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Hasło">
+          <Field label="Hasło" error={fieldErrors.password}>
             <Input autoComplete="new-password" onChange={(event) => store.setField("password", event.target.value)} required type="password" value={store.password} placeholder="Minimum 8 znaków" />
           </Field>
-          <Field label="Potwierdź hasło">
+          <Field label="Potwierdź hasło" error={fieldErrors.confirmPassword}>
             <Input autoComplete="new-password" onChange={(event) => store.setField("confirmPassword", event.target.value)} required type="password" value={store.confirmPassword} placeholder="Powtórz hasło" />
           </Field>
         </div>
@@ -385,14 +551,27 @@ export function RegisterForm() {
           </div>
         )}
       </div>
+      ) : null}
 
-      {store.accountType === "COMPANY" ? (
+      {currentStep === "company" && store.accountType === "COMPANY" ? (
         <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
-          <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="mb-4">
             <div>
               <h3 className="text-base font-semibold text-slate-900">Dane firmy</h3>
               <p className="mt-1 text-sm text-slate-500">Mozesz wpisac dane recznie albo sprobowac pobrac je z Google Places. Avatar i opis działalności ustawisz później w opcjach konta.</p>
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nazwa firmy" error={fieldErrors.companyName}>
+              <Input onChange={(event) => store.setField("companyName", event.target.value)} required value={store.companyName} />
+            </Field>
+            <Field label="Miasto" error={fieldErrors.companyCity}>
+              <Input onChange={(event) => store.setField("companyCity", event.target.value)} value={store.companyCity} />
+            </Field>
+          </div>
+
+          <div className="mt-4">
             <button
               className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-900"
               onClick={handleBusinessLookup}
@@ -402,14 +581,11 @@ export function RegisterForm() {
             </button>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nazwa firmy">
-              <Input onChange={(event) => store.setField("companyName", event.target.value)} required value={store.companyName} />
-            </Field>
-            <Field label="NIP">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="NIP" error={fieldErrors.companyNip}>
               <Input onChange={(event) => store.setField("companyNip", event.target.value)} value={store.companyNip} />
             </Field>
-            <Field label="Email firmowy">
+            <Field label="Email firmowy" error={fieldErrors.companyEmail}>
               <Input
                 disabled={sameCompanyEmail}
                 onChange={(event) => store.setField("companyEmail", event.target.value)}
@@ -417,7 +593,7 @@ export function RegisterForm() {
                 value={sameCompanyEmail ? store.email : store.companyEmail}
               />
             </Field>
-            <Field label="Telefon firmowy">
+            <Field label="Telefon firmowy" error={fieldErrors.companyPhone}>
               <div className="flex gap-2">
                 <select
                   className="h-12 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
@@ -439,9 +615,6 @@ export function RegisterForm() {
                 />
               </div>
             </Field>
-            <Field label="Miasto">
-              <Input onChange={(event) => store.setField("companyCity", event.target.value)} value={store.companyCity} />
-            </Field>
             <Field label="Kod pocztowy">
               <Input onChange={(event) => store.setField("companyZipCode", event.target.value)} value={store.companyZipCode} />
             </Field>
@@ -451,68 +624,177 @@ export function RegisterForm() {
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-              <input
-                checked={sameCompanyEmail}
-                className="mt-1 h-4 w-4"
-                onChange={(event) => setSameCompanyEmail(event.target.checked)}
-                type="checkbox"
-              />
-              <span>{t("Uzyj tego samego emaila dla firmy", "Use the same email for company")}</span>
-            </label>
-            <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-              <input
-                checked={sameCompanyPhone}
-                className="mt-1 h-4 w-4"
-                onChange={(event) => setSameCompanyPhone(event.target.checked)}
-                type="checkbox"
-              />
-              <span>{t("Uzyj tego samego telefonu dla firmy", "Use the same phone for company")}</span>
-            </label>
+            <Switch
+              checked={sameCompanyEmail}
+              onChange={setSameCompanyEmail}
+              label={t("Uzyj tego samego emaila dla firmy", "Use the same email for company")}
+              description={t("Skopiuj email konta osobistego do danych firmowych.", "Copy personal account email into company details.")}
+            />
+            <Switch
+              checked={sameCompanyPhone}
+              onChange={setSameCompanyPhone}
+              label={t("Uzyj tego samego telefonu dla firmy", "Use the same phone for company")}
+              description={t("Skopiuj numer telefonu z konta osobistego do firmy.", "Copy personal phone number into company details.")}
+            />
           </div>
 
           {lookupMessage ? <p className="mt-4 text-sm text-slate-500">{lookupMessage}</p> : null}
 
-          {store.lookupResults.length > 0 ? (
-            <div className="mt-4 grid gap-3">
-              {store.lookupResults.map((result) => (
-                <button
-                  className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-amber-500"
-                  key={result.id}
-                  onClick={() => store.applyBusinessLookupResult(result)}
-                  type="button"
-                >
-                  <div className="font-semibold text-slate-900">{result.name}</div>
-                  <div className="mt-1 text-sm text-slate-500">{result.address}</div>
-                  <div className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-400">{result.businessStatus ?? "UNKNOWN"}</div>
-                </button>
-              ))}
+          {lookupResults.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-900">
+              <p className="font-semibold">Znaleziono firmy w Google Maps</p>
+              <p className="mt-1">Wybierz firmę z mapy, aby automatycznie uzupełnić dane.</p>
+              <button
+                className="mt-3 rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+                onClick={() => setIsLookupModalOpen(true)}
+                type="button"
+              >
+                Otwórz mapę i wybierz firmę
+              </button>
             </div>
           ) : null}
         </section>
       ) : null}
 
-      <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+      {isLookupModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="text-base font-semibold text-slate-900">Wybierz firmę na mapie</h3>
+              <button
+                className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:bg-slate-50"
+                onClick={() => setIsLookupModalOpen(false)}
+                type="button"
+              >
+                Zamknij
+              </button>
+            </div>
+
+            <div className="grid gap-0 md:grid-cols-[0.95fr_1.05fr]">
+              <div className="max-h-[62vh] overflow-y-auto border-r border-slate-200 p-4">
+                <div className="grid gap-3">
+                  {lookupResults.map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => setSelectedLookupId(result.id)}
+                      className={`rounded-2xl border p-4 text-left transition ${
+                        selectedLookupId === result.id
+                          ? "border-amber-500 bg-amber-50"
+                          : "border-slate-200 bg-white hover:border-amber-300"
+                      }`}
+                    >
+                      <div className="font-semibold text-slate-900">{result.name}</div>
+                      <div className="mt-1 text-sm text-slate-500">{result.address || "Brak adresu"}</div>
+                      <div className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">{result.businessStatus ?? "UNKNOWN"}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4">
+                {selectedLookup ? (
+                  <>
+                    <p className="text-sm font-semibold text-slate-900">{selectedLookup.name}</p>
+                    <p className="mt-1 text-sm text-slate-600">{selectedLookup.address || "Brak adresu"}</p>
+
+                    <div className="mt-3 h-72 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                      {selectedMapUrl ? (
+                        <iframe
+                          title="Podgląd mapy firmy"
+                          src={selectedMapUrl}
+                          className="h-full w-full"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                          Brak wspolrzednych mapy dla tej firmy.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                        onClick={() => {
+                          const picked = lookupResults.find((result) => result.id === selectedLookupId);
+                          if (!picked) {
+                            return;
+                          }
+                          store.applyBusinessLookupResult(picked);
+                          setIsLookupModalOpen(false);
+                        }}
+                        type="button"
+                      >
+                        Wybierz tę firmę
+                      </button>
+                      {selectedLookup.googleMapsUrl ? (
+                        <a
+                          href={selectedLookup.googleMapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Otwórz w Google Maps
+                        </a>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full min-h-64 items-center justify-center text-sm text-slate-500">
+                    Wybierz firmę z listy po lewej.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {currentStep === "security" ? <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
         <input checked={store.marketingConsent} className="mt-1 h-4 w-4" onChange={(event) => store.setField("marketingConsent", event.target.checked)} type="checkbox" />
         <span>Zgadzam sie na komunikacje marketingowa dotyczaca promocji i nowych funkcji.</span>
-      </label>
+      </label> : null}
 
-      {store.accountType === "COMPANY" ? (
+      {currentStep === "security" && store.accountType === "COMPANY" ? (
         <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
           <input checked={store.companyAcceptedTerms} className="mt-1 h-4 w-4" onChange={(event) => store.setField("companyAcceptedTerms", event.target.checked)} type="checkbox" />
           <span>Potwierdzam, ze rejestruje konto jako przedsiebiorca i akceptuje warunki dla kont firmowych.</span>
+          {fieldErrors.companyAcceptedTerms ? <span className="text-xs text-rose-600">{fieldErrors.companyAcceptedTerms}</span> : null}
         </label>
       ) : null}
 
       {store.error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{store.error}</div> : null}
 
-      <button
-        className="h-12 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-        disabled={store.isSubmitting || !passwordStrength.isStrong || !!emailConfirmError}
-        type="submit"
-      >
-        {store.isSubmitting ? "Tworze konto..." : "Utworz konto"}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        {currentStepIndex > 0 ? (
+          <button
+            className="h-12 rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-800 transition hover:border-slate-900 hover:text-slate-950"
+            onClick={handlePreviousStep}
+            type="button"
+          >
+            Wstecz
+          </button>
+        ) : null}
+
+        {currentStepIndex < steps.length - 1 ? (
+          <button
+            className="h-12 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800"
+            onClick={handleNextStep}
+            type="button"
+          >
+            Dalej
+          </button>
+        ) : (
+          <button
+            className="h-12 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            disabled={store.isSubmitting || !passwordStrength.isStrong || !!emailConfirmError}
+            type="submit"
+          >
+            {store.isSubmitting ? "Tworze konto..." : "Utworz konto"}
+          </button>
+        )}
+      </div>
 
       <a
         className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-800 transition hover:border-slate-900 hover:text-slate-950"

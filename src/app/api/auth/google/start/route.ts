@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import { AUTH_GOOGLE_STATE_COOKIE } from "@/lib/auth/constants";
+import { buildShortLivedAuthCookieOptions } from "@/lib/auth/cookie-options";
 import { generateOpaqueToken } from "@/lib/auth/crypto";
 import { buildGoogleAuthorizationUrl, getGoogleOAuthConfig } from "@/lib/auth/google-oauth";
 
@@ -21,13 +22,7 @@ export async function GET(request: NextRequest) {
   const state = generateOpaqueToken(24);
   const cookieStore = await cookies();
 
-  cookieStore.set(AUTH_GOOGLE_STATE_COOKIE, state, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 10 * 60,
-  });
+  cookieStore.set(AUTH_GOOGLE_STATE_COOKIE, state, buildShortLivedAuthCookieOptions(10 * 60));
 
   const redirectUrl = buildGoogleAuthorizationUrl({
     clientId: config.clientId,

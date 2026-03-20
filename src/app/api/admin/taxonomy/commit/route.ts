@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -149,10 +150,10 @@ export async function POST(request: NextRequest) {
 
       const importedCategoryIds = [...categoryIdBySlug.values()];
       if (importedCategoryIds.length) {
-        await tx.$executeRawUnsafe(
-          `DELETE FROM category_tags WHERE category_id = ANY($1::uuid[])`,
-          importedCategoryIds,
-        );
+        await tx.$executeRaw`
+          DELETE FROM category_tags
+          WHERE category_id IN (${Prisma.join(importedCategoryIds)})
+        `;
       }
 
       for (const category of draft.categories) {
@@ -169,11 +170,11 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          await tx.$executeRawUnsafe(
-            `INSERT INTO category_tags (category_id, tag_id) VALUES ($1::uuid, $2::uuid) ON CONFLICT DO NOTHING`,
-            categoryId,
-            tagId,
-          );
+          await tx.$executeRaw`
+            INSERT INTO category_tags (category_id, tag_id)
+            VALUES (${categoryId}::uuid, ${tagId}::uuid)
+            ON CONFLICT DO NOTHING
+          `;
         }
       }
 
